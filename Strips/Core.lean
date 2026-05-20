@@ -19,33 +19,33 @@ of planning problems. Additional definitions can be found in `STRIPS.Basic`.
 
 /-! ## Sets of variables
 
-Variables have type `Fin n`. Sets of variables are represented by a bitvector of length `n`.
+Variables have type `Fin n`.
+Sets of variables are internally represented by a bitvector of length `n`.
 -/
-
-abbrev VarSet n := BitVec n
+structure VarSet (n : ℕ) where
+  toBitVec : BitVec n
+deriving DecidableEq, Repr
 
 namespace VarSet
 
 instance {n} : EmptyCollection (VarSet n) where
-  emptyCollection := BitVec.zero n
+  emptyCollection := ⟨BitVec.zero n⟩
 
 @[expose]
-def insert {n} (i : Fin n) (V : VarSet n) :=
-  V ||| BitVec.twoPow n i
+def insert {n} (i : Fin n) (V : VarSet n) : VarSet n :=
+  ⟨V.toBitVec ||| BitVec.twoPow n i⟩
 
 @[expose]
 def ofList {n} (l : List (Fin n)) : VarSet n :=
   l.foldr insert ∅
 
 instance {n} : SetLike (VarSet n) (Fin n) where
-  coe V := { i | V[i] }
+  coe V := { i | V.toBitVec[i] }
 
-  coe_injective' V V' := by
-    simp only [VarSet, Fin.getElem_fin, Set.ext_iff, Set.mem_setOf_eq, Bool.coe_iff_coe,
-      BitVec.eq_of_getElem_eq_iff]
-    intro h i hi
-    specialize h ⟨i, hi⟩
-    grind
+  coe_injective' := by
+    rintro ⟨V⟩ ⟨V'⟩
+    simp only [Fin.getElem_fin, Set.ext_iff, Set.mem_setOf_eq, Bool.coe_iff_coe, Fin.forall_iff,
+      mk.injEq, BitVec.eq_of_getElem_eq_iff, imp_self]
 
 end VarSet
 
@@ -129,7 +129,9 @@ in the state space of `pt`.
 inductive Path {n} (pt : PlanningTask n) : State n → State n → Type
   /-- The empty path consisting of a single node `s`. -/
   | empty s : Path pt s s
-  /-- The path consisting of the node `s`, and the path `π`, where `s[a]` is the first node of `π`.-/
+  /--
+  The path consisting of the node `s`, and the path `π`, where `s[a]` is the first node of `π`.
+  -/
   | cons a {s1} s2 {s3}
     (ha : a ∈ pt.actions) (succ : Successor a s1 s2) (π : Path pt s2 s3) : Path pt s1 s3
 

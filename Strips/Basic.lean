@@ -296,9 +296,9 @@ lemma sub_progression_iff_sub_regression {n} {pt : PlanningTask n} {S S' A} :
 /-! ## VarSet -/
 namespace VarSet
 
-lemma mem_iff {n i} {V : VarSet n} : i ∈ V ↔ V[i] := by
+lemma mem_iff {n i} {V : VarSet n} : i ∈ V ↔ V.toBitVec[i] := by
   unfold SetLike.instMembership
-  simp only [SetLike.coe, Fin.getElem_fin, Set.mem_setOf_eq]
+  simp only [SetLike.coe, Set.mem_setOf_eq]
 
 instance {n} {i : Fin n} {V : VarSet n} : Decidable (i ∈ V) := by
   rw [mem_iff]
@@ -314,7 +314,7 @@ lemma mem_empty {n i} : i ∉ (∅ : VarSet n) := by
   simp [mem_iff]
 
 instance {n} : Union (VarSet n) where
-  union V V' := V ||| V'
+  union V V' := ⟨V.toBitVec ||| V'.toBitVec⟩
 
 @[simp]
 lemma mem_union {n} {V V' : VarSet n} {i} : i ∈ V ∪  V' ↔ i ∈ V ∨ i ∈ V' := by
@@ -330,7 +330,7 @@ lemma union_empty {n} {V : VarSet n} : V ∪ ∅ = V := by
   simp only [SetLike.ext_iff, mem_union, mem_empty, or_false, implies_true]
 
 instance {n} : Inter (VarSet n) where
-  inter V V' := V &&& V'
+  inter V V' := ⟨V.toBitVec &&& V'.toBitVec⟩
 
 @[simp]
 lemma mem_inter {n} {V V' : VarSet n} {i} : i ∈ V ∩ V' ↔ i ∈ V ∧ i ∈ V' := by
@@ -359,7 +359,7 @@ lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ (ofList l) ↔ i ∈ l := by
     grind only [List.mem_cons, = List.foldr_cons, mem_insert]
 
 instance {n} : Compl (VarSet n) where
-  compl V := ~~~V
+  compl V := ⟨~~~V.toBitVec⟩
 
 @[simp]
 lemma mem_compl {n} {V : VarSet n} {i} : i ∈ Vᶜ ↔ i ∉ V := by
@@ -367,7 +367,7 @@ lemma mem_compl {n} {V : VarSet n} {i} : i ∈ Vᶜ ↔ i ∉ V := by
   simp [mem_iff]
 
 instance {n} : SDiff (VarSet n) where
-  sdiff V V' := V &&& ~~~V'
+  sdiff V V' := ⟨V.toBitVec &&& ~~~V'.toBitVec⟩
 
 @[simp]
 lemma mem_diff {n} {V V' : VarSet n} {i} : i ∈ V \ V' ↔ i ∈ V ∧ i ∉ V' := by
@@ -380,6 +380,7 @@ def foldl {α n} (f : α → Fin n → α) (init : α) (V : VarSet n) : α :=
 lemma foldl_cons {α n} {V : VarSet n} {f : Fin n → α} {a as} :
     a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
   simp only [foldl]
+  rcases V with ⟨V⟩
   induction V using BitVec.cons_induction with
   | nil => simp
   | @cons n' b V ih =>
@@ -415,6 +416,7 @@ def map {n m} (V : VarSet n) (f : Fin n → Fin m) : VarSet m :=
 
 lemma mem_map {n m} {V : VarSet n} {f : Fin n → Fin m} {i} :  i ∈ V.map f ↔ (∃ j ∈ V, i = f j) := by
   simp only [map, foldl, insert]
+  rcases V with ⟨V⟩
   induction V using BitVec.cons_induction with
   | nil => simp
   | @cons n' b V ih =>
