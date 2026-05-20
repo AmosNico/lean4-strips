@@ -1,5 +1,3 @@
-/- TODO : Copyright -/
-
 import Mathlib.Data.Finset.Dedup
 import Mathlib.Data.List.Sort
 

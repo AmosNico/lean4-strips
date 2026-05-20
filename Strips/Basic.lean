@@ -87,19 +87,6 @@ lemma snocCases {n : ℕ} {pt : PlanningTask n}
       rw [heq_cons]
       apply snoc
 
-/-! ### append -/
-
-/--
-Given a path form a `s1` to `s2` and a path from `s2` to `s3`, we obtain a path from `s1` to `s3`.
--/
-def append {n} {pt : PlanningTask n} {s1 s2 s3} : Path pt s1 s2 → Path pt s2 s3 → Path pt s1 s3
-| empty s, π => π
-| cons a s2' ha succ π', π => cons a s2' ha succ (append π' π)
-
-instance {n} {pt : PlanningTask n} {s1 s2 s3} :
-  HAppend (Path pt s1 s2) (Path pt s2 s3) (Path pt s1 s3) where
-  hAppend := append
-
 /-! ### Mem -/
 
 /-- A state `s` is a member of a path `π` if `π` traverses through `s`. -/
@@ -111,14 +98,18 @@ instance {n} {pt : PlanningTask n} {s1 s2} : Membership (State n) (Path pt s1 s2
   mem π s := Path.Mem s π
 
 @[simp]
+def mem_eq {n : ℕ} {pt : PlanningTask n} {s1 s2 : State n} (π : Path pt s1 s2) (s : State n) :
+    Mem s π = (s ∈ π) := (rfl)
+
+@[simp]
 lemma mem_empty {n} {pt : PlanningTask n} {s s' : State n} : s ∈ @Path.empty _ pt s' ↔ s = s' :=
-  by simp [instMembershipState, Mem]
+  by rw [← mem_eq]; rfl
 
 @[simp]
 lemma mem_cons {n : ℕ} {pt : PlanningTask n} {a s1 s2 s3} {ha : a ∈ pt.actions}
   {succ : Successor a s1 s2} {π : Path pt s2 s3} {s} :
   s ∈ cons a s2 ha succ π ↔ s = s1 ∨ s ∈ π :=
-  by simp [instMembershipState, Path.Mem]
+  by rw [← mem_eq]; rfl
 
 @[simp]
 lemma mem_snoc {n : ℕ} {pt : PlanningTask n} {a s1 s2 s3} {ha : a ∈ pt.actions}
@@ -127,7 +118,7 @@ lemma mem_snoc {n : ℕ} {pt : PlanningTask n} {a s1 s2 s3} {ha : a ∈ pt.actio
   by
     induction π with
     | empty s1 =>
-      simp [instMembershipState, snoc]
+      simp only [snoc, mem_cons, mem_empty]
       tauto
     | @cons a' s1 s2 s2' ha' succ' π ih =>
       simp only [snoc, mem_cons]
@@ -146,14 +137,31 @@ lemma last_mem {n} {pt : PlanningTask n} {s1 s2} (π : Path pt s1 s2) : s2 ∈ �
     | @cons a s1 s2 s3 ha succ π ih =>
       simp [mem_cons, ih]
 
+/-! ### append -/
+
+/--
+Given a path form a `s1` to `s2` and a path from `s2` to `s3`, we obtain a path from `s1` to `s3`.
+-/
+def append {n} {pt : PlanningTask n} {s1 s2 s3} : Path pt s1 s2 → Path pt s2 s3 → Path pt s1 s3
+| empty s, π => π
+| cons a s2' ha succ π', π => cons a s2' ha succ (append π' π)
+
+instance {n} {pt : PlanningTask n} {s1 s2 s3} :
+  HAppend (Path pt s1 s2) (Path pt s2 s3) (Path pt s1 s3) where
+  hAppend := append
+
+@[simp]
+lemma append_eq {n} {pt} {s1 s2 s3 : State n} (π₁ : Path pt s1 s2) (π₂ : Path pt s2 s3) :
+  π₁.append π₂ = π₁ ++ π₂ := (rfl)
+
 lemma mem_append {n} {pt : PlanningTask n} {s1 s2 s3} (π₁ : Path pt s1 s2) (π₂ : Path pt s2 s3) :
   ∀ s, s ∈ (π₁ ++ π₂) ↔ s ∈ π₁ ∨ s ∈ π₂ :=
   by
     induction π₁ with
     | empty =>
-      simp [instHAppend, Path.append, Path.first_mem]
+      simp only [← append_eq, append, mem_empty, iff_or_self, forall_eq, first_mem]
     | cons =>
-      simp_all [instHAppend, Path.append]
+      simp_all only [← append_eq, append, mem_cons]
       tauto
 
 /-! ### split -/
