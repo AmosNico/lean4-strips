@@ -27,76 +27,74 @@ In `Path.cons`, paths are expanded by adding states at the front of the path
 leaving the first state unchanged. The name snoc comes from reading cons in reverse order.
 -/
 def snoc {n} {pt : PlanningTask n} a {s1} s2 {s3} (ha : a ∈ pt.actions)
- (π : Path pt s1 s2) (succ : Successor a s2 s3) : Path pt s1 s3 :=
-   match π with
-   | empty s => cons a s3 ha succ (empty s3)
-   | cons a' s4 ha' succ' π' =>
-       let π'' := snoc a s2 ha π' succ
-       cons a' s4 ha' succ' π''
+    (π : Path pt s1 s2) (succ : Successor a s2 s3) : Path pt s1 s3 :=
+  match π with
+  | empty s => cons a s3 ha succ (empty s3)
+  | cons a' s4 ha' succ' π' =>
+      let π'' := snoc a s2 ha π' succ
+      cons a' s4 ha' succ' π''
 
 /-- The length of a path. -/
 def length {n} {pt : PlanningTask n} {s s'} : Path pt s s' → ℕ
-| empty _ => 0
-| cons _ _ _ _ π => π.length + 1
+  | empty _ => 0
+  | cons _ _ _ _ π => π.length + 1
 
 @[simp]
 lemma length_snoc {n} {pt : PlanningTask n} {a s1 s2 s3}
-  {ha : a ∈ pt.actions} {π : Path pt s1 s2} {succ : Successor a s2 s3} :
-  length (snoc a s2 ha π succ) = π.length + 1 :=
-  by
-    induction π with
-    | empty s => simp[snoc, length]
-    | cons a' s2 ha' succ' π ih => simp [snoc, length, ih]
+    {ha : a ∈ pt.actions} {π : Path pt s1 s2} {succ : Successor a s2 s3} :
+    length (snoc a s2 ha π succ) = π.length + 1 := by
+  induction π with
+  | empty s => simp[snoc, length]
+  | cons a' s2 ha' succ' π ih => simp [snoc, length, ih]
 
 /--
 Convert `Path.cons`, where we have access to the first action and the second state of the path,
 to `Path.snoc`, where we have access to the last action and the second to last state of the path.
 -/
 lemma cons_to_snoc {n} {pt : PlanningTask n} {a : Action n} {s1 s2 s3 : State n}
-  (ha : a ∈ pt.actions) (succ : Successor a s1 s2) (π : Path pt s2 s3) :
-  ∃ s2' a', ∃ (ha' : a' ∈ pt.actions) (π' : Path pt s1 s2') (succ' : Successor a' s2' s3),
-  cons a s2 ha succ π = snoc a' s2' ha' π' succ' ∧ π.length = π'.length :=
-  by
-    cases heq : π with
-    | empty s2' =>
-      use s1, a, ha, empty s1, succ
-      simp [snoc, length]
-    | @cons a' s1 s2' s2 ha' succ' π' =>
-      -- For termination
-      have : π'.length < π.length := by
-        subst heq
-        simp [length]
-      obtain ⟨s2'', a'', ha'', π'', succ'', heq, heq'⟩ := cons_to_snoc ha' succ' π'
-      use s2'', a'', ha'', cons a s2 ha succ π'', succ''
-      simp only [length, Nat.add_right_cancel_iff]
-      rw [heq, heq']
-      simp [snoc]
+    (ha : a ∈ pt.actions) (succ : Successor a s1 s2) (π : Path pt s2 s3) :
+    ∃ s2' a', ∃ (ha' : a' ∈ pt.actions) (π' : Path pt s1 s2') (succ' : Successor a' s2' s3),
+    cons a s2 ha succ π = snoc a' s2' ha' π' succ' ∧ π.length = π'.length := by
+  cases heq : π with
+  | empty s2' =>
+    use s1, a, ha, empty s1, succ
+    simp [snoc, length]
+  | @cons a' s1 s2' s2 ha' succ' π' =>
+    -- For termination
+    have : π'.length < π.length := by
+      subst heq
+      simp [length]
+    obtain ⟨s2'', a'', ha'', π'', succ'', heq, heq'⟩ := cons_to_snoc ha' succ' π'
+    use s2'', a'', ha'', cons a s2 ha succ π'', succ''
+    simp only [length, Nat.add_right_cancel_iff]
+    rw [heq, heq']
+    simp [snoc]
 
 /--
 Allows to perform cases with `Path.empty` and `Path.snoc` instead of `Path.empty` and `Path.cons`.
 -/
 lemma snocCases {n : ℕ} {pt : PlanningTask n}
-  {motive : (s s' : State n) → Path pt s s' → Prop}
-  {s s' : State n} (π : Path pt s s')
-  (empty : (s : State n) → motive s s (Path.empty s))
-  (snoc : (a : Action n) → {s1 : State n} → (s2 : State n) → {s3 : State n} →
-    (ha : a ∈ pt.actions) → (π' : Path pt s1 s2) → (succ : Successor a s2 s3) →
-      motive s1 s3 (snoc a s2 ha π' succ)) :
-  motive s s' π :=
-    match π with
-    | .empty s => empty s
-    | cons a s2 ha succ π =>
-      have ⟨s2', a', ha', π', succ', heq_cons, heq_length⟩ := cons_to_snoc ha succ π
-      by
-      rw [heq_cons]
-      apply snoc
+    {motive : (s s' : State n) → Path pt s s' → Prop}
+    {s s' : State n} (π : Path pt s s')
+    (empty : (s : State n) → motive s s (Path.empty s))
+    (snoc : (a : Action n) → {s1 : State n} → (s2 : State n) → {s3 : State n} →
+      (ha : a ∈ pt.actions) → (π' : Path pt s1 s2) → (succ : Successor a s2 s3) →
+        motive s1 s3 (snoc a s2 ha π' succ)) :
+    motive s s' π :=
+  match π with
+  | .empty s => empty s
+  | cons a s2 ha succ π =>
+    have ⟨s2', a', ha', π', succ', heq_cons, heq_length⟩ := cons_to_snoc ha succ π
+    by
+    rw [heq_cons]
+    apply snoc
 
 /-! ### Mem -/
 
 /-- A state `s` is a member of a path `π` if `π` traverses through `s`. -/
 def Mem {n} {pt : PlanningTask n} {s1 s2} (s : State n) : (π : Path pt s1 s2) → Prop
-| empty s' => s = s'
-| cons _ _ _ _ π => s = s1 ∨ Mem s π
+  | empty s' => s = s'
+  | cons _ _ _ _ π => s = s1 ∨ Mem s π
 
 instance {n} {pt : PlanningTask n} {s1 s2} : Membership (State n) (Path pt s1 s2) where
   mem π s := Path.Mem s π
@@ -106,40 +104,37 @@ def mem_eq {n : ℕ} {pt : PlanningTask n} {s1 s2 : State n} (π : Path pt s1 s2
     Mem s π = (s ∈ π) := (rfl)
 
 @[simp]
-lemma mem_empty {n} {pt : PlanningTask n} {s s' : State n} : s ∈ @Path.empty _ pt s' ↔ s = s' :=
-  by rw [← mem_eq]; rfl
+lemma mem_empty {n} {pt : PlanningTask n} {s s' : State n} : s ∈ @Path.empty _ pt s' ↔ s = s' := by
+  rw [← mem_eq]; rfl
 
 @[simp]
 lemma mem_cons {n : ℕ} {pt : PlanningTask n} {a s1 s2 s3} {ha : a ∈ pt.actions}
-  {succ : Successor a s1 s2} {π : Path pt s2 s3} {s} :
-  s ∈ cons a s2 ha succ π ↔ s = s1 ∨ s ∈ π :=
-  by rw [← mem_eq]; rfl
+    {succ : Successor a s1 s2} {π : Path pt s2 s3} {s} :
+    s ∈ cons a s2 ha succ π ↔ s = s1 ∨ s ∈ π := by
+  rw [← mem_eq]; rfl
 
 @[simp]
 lemma mem_snoc {n : ℕ} {pt : PlanningTask n} {a s1 s2 s3} {ha : a ∈ pt.actions}
-  {π : Path pt s1 s2} {succ : Successor a s2 s3} {s} :
-  s ∈ snoc a s2 ha π succ ↔ s = s3 ∨ s ∈ π :=
-  by
-    induction π with
-    | empty s1 =>
-      simp only [snoc, mem_cons, mem_empty]
-      tauto
-    | @cons a' s1 s2 s2' ha' succ' π ih =>
-      simp only [snoc, mem_cons]
-      rw [ih]
-      tauto
+    {π : Path pt s1 s2} {succ : Successor a s2 s3} {s} :
+    s ∈ snoc a s2 ha π succ ↔ s = s3 ∨ s ∈ π := by
+  induction π with
+  | empty s1 =>
+    simp only [snoc, mem_cons, mem_empty]
+    tauto
+  | @cons a' s1 s2 s2' ha' succ' π ih =>
+    simp only [snoc, mem_cons]
+    rw [ih]
+    tauto
 
-lemma first_mem {n} {pt : PlanningTask n} {s1 s2} (π : Path pt s1 s2) : s1 ∈ π :=
-  by
-    cases π
-    all_goals simp
+lemma first_mem {n} {pt : PlanningTask n} {s1 s2} (π : Path pt s1 s2) : s1 ∈ π := by
+  cases π
+  all_goals simp
 
-lemma last_mem {n} {pt : PlanningTask n} {s1 s2} (π : Path pt s1 s2) : s2 ∈ π :=
-  by
-    induction π with
-    | empty s => simp
-    | @cons a s1 s2 s3 ha succ π ih =>
-      simp [mem_cons, ih]
+lemma last_mem {n} {pt : PlanningTask n} {s1 s2} (π : Path pt s1 s2) : s2 ∈ π := by
+  induction π with
+  | empty s => simp
+  | @cons a s1 s2 s3 ha succ π ih =>
+    simp [mem_cons, ih]
 
 /-! ### append -/
 
@@ -147,8 +142,8 @@ lemma last_mem {n} {pt : PlanningTask n} {s1 s2} (π : Path pt s1 s2) : s2 ∈ �
 Given a path form a `s1` to `s2` and a path from `s2` to `s3`, we obtain a path from `s1` to `s3`.
 -/
 def append {n} {pt : PlanningTask n} {s1 s2 s3} : Path pt s1 s2 → Path pt s2 s3 → Path pt s1 s3
-| empty s, π => π
-| cons a s2' ha succ π', π => cons a s2' ha succ (append π' π)
+  | empty s, π => π
+  | cons a s2' ha succ π', π => cons a s2' ha succ (append π' π)
 
 instance {n} {pt : PlanningTask n} {s1 s2 s3} :
   HAppend (Path pt s1 s2) (Path pt s2 s3) (Path pt s1 s3) where
@@ -156,17 +151,16 @@ instance {n} {pt : PlanningTask n} {s1 s2 s3} :
 
 @[simp]
 lemma append_eq {n} {pt} {s1 s2 s3 : State n} (π₁ : Path pt s1 s2) (π₂ : Path pt s2 s3) :
-  π₁.append π₂ = π₁ ++ π₂ := (rfl)
+    π₁.append π₂ = π₁ ++ π₂ := (rfl)
 
 lemma mem_append {n} {pt : PlanningTask n} {s1 s2 s3} (π₁ : Path pt s1 s2) (π₂ : Path pt s2 s3) :
-  ∀ s, s ∈ (π₁ ++ π₂) ↔ s ∈ π₁ ∨ s ∈ π₂ :=
-  by
-    induction π₁ with
-    | empty =>
-      simp only [← append_eq, append, mem_empty, iff_or_self, forall_eq, first_mem]
-    | cons =>
-      simp_all only [← append_eq, append, mem_cons]
-      tauto
+    ∀ s, s ∈ (π₁ ++ π₂) ↔ s ∈ π₁ ∨ s ∈ π₂ := by
+  induction π₁ with
+  | empty =>
+    simp only [← append_eq, append, mem_empty, iff_or_self, forall_eq, first_mem]
+  | cons =>
+    simp_all only [← append_eq, append, mem_cons]
+    tauto
 
 /-! ### split -/
 
@@ -174,8 +168,7 @@ lemma mem_append {n} {pt : PlanningTask n} {s1 s2 s3} (π₁ : Path pt s1 s2) (�
 If a state `s` lies on a path `π` from `s1` to `s2`, then there is a path from the `s1` to `s` and
 a path from `s` to `s2`. -/
 lemma split {n} {pt : PlanningTask n} {s1 s2 s} (π : Path pt s1 s2) (h : s ∈ π) :
-  Nonempty (Path pt s1 s × Path pt s s2) :=
-  by
+    Nonempty (Path pt s1 s × Path pt s s2) := by
   cases π with
   | empty s =>
     simp only [mem_empty] at h
@@ -201,12 +194,11 @@ This is the `Prop` version of `Path`.
 abbrev Reachable {n} (pt : PlanningTask n) (s s' : State n) : Prop :=
   Nonempty (Path pt s s')
 
-lemma reachable_self {n pt} : ∀ s : State n, Reachable pt s s :=
-  by
-    intro s
-    simp only [Reachable]
-    constructor
-    exact Path.empty s
+lemma reachable_self {n pt} : ∀ s : State n, Reachable pt s s := by
+  intro s
+  simp only [Reachable]
+  constructor
+  exact Path.empty s
 
 namespace PlanningTask
 
@@ -237,73 +229,67 @@ def regression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States
 end PlanningTask
 
 lemma mem_progression {n} {pt : PlanningTask n} {A S} :
-  ∀ s : State n, s ∈ pt.progression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s' s :=
-  by simp [PlanningTask.progression, PlanningTask.progression']
+    ∀ s : State n, s ∈ pt.progression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s' s := by
+  simp [PlanningTask.progression, PlanningTask.progression']
 
 lemma mem_progression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
-  (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s s') : s' ∈ pt.progression S A :=
-  by
-    rw [mem_progression]
-    use a, ha, s
+    (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s s') : s' ∈ pt.progression S A := by
+  rw [mem_progression]
+  use a, ha, s
 
 lemma progression_union_states {n} {pt : PlanningTask n} {S1 S2 A} :
-  pt.progression (S1 ∪ S2) A = pt.progression S1 A ∪ pt.progression S2 A :=
-  by
-    ext s
-    simp [mem_progression]
-    grind
+    pt.progression (S1 ∪ S2) A = pt.progression S1 A ∪ pt.progression S2 A := by
+  ext s
+  simp [mem_progression]
+  grind
 
 lemma progression_union_actions {n} {pt : PlanningTask n} {S A1 A2} :
-  pt.progression S (A1 ∪ A2) = pt.progression S A1 ∪ pt.progression S A2 :=
-  by
-    ext s
-    simp [mem_progression]
-    grind
+    pt.progression S (A1 ∪ A2) = pt.progression S A1 ∪ pt.progression S A2 := by
+  ext s
+  simp [mem_progression]
+  grind
 
-lemma progression_monotone_states {n} {pt : PlanningTask n} {A} : Monotone (pt.progression · A) :=
-  by
-    intro S1 S2 hS s hs
-    simp_all only [Set.le_eq_subset, mem_progression]
-    obtain ⟨a, ha, s', hs', succ⟩ := hs
-    use a, ha, s', hS hs'
+lemma progression_monotone_states {n} {pt : PlanningTask n} {A} :
+    Monotone (pt.progression · A) := by
+  intro S1 S2 hS s hs
+  simp_all only [Set.le_eq_subset, mem_progression]
+  obtain ⟨a, ha, s', hs', succ⟩ := hs
+  use a, ha, s', hS hs'
 
-lemma progression_monotone_actions {n} {pt : PlanningTask n} {S} : Monotone (pt.progression S) :=
-  by
-    intro A1 A2 hA s hs
-    simp_all only [Set.le_eq_subset, mem_progression]
-    obtain ⟨a, ha, s', hs', succ⟩ := hs
-    use a, hA ha, s'
+lemma progression_monotone_actions {n} {pt : PlanningTask n} {S} : Monotone (pt.progression S) := by
+  intro A1 A2 hA s hs
+  simp_all only [Set.le_eq_subset, mem_progression]
+  obtain ⟨a, ha, s', hs', succ⟩ := hs
+  use a, hA ha, s'
 
 lemma mem_regression {n} {pt : PlanningTask n} {S A} :
- ∀ s : State n, s ∈ pt.regression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s s' :=
-  by simp [PlanningTask.regression, PlanningTask.regression']
+    ∀ s : State n, s ∈ pt.regression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s s' := by
+  simp [PlanningTask.regression, PlanningTask.regression']
 
 lemma mem_regression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
-  (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s' s) : s' ∈ pt.regression S A :=
-  by
-    rw [mem_regression]
-    use a, ha, s
+    (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s' s) : s' ∈ pt.regression S A := by
+  rw [mem_regression]
+  use a, ha, s
 
 lemma sub_progression_iff_sub_regression {n} {pt : PlanningTask n} {S S' A} :
-  pt.progression S A ⊆ S' ↔ pt.regression S'ᶜ A ⊆ Sᶜ :=
-  by
-    constructor
-    · intro h1 s hs_regr
-      obtain ⟨a, ha, s', hs', succ⟩ := (mem_regression s).1 hs_regr
-      simp only [Set.mem_compl_iff] at ⊢ hs'
-      by_contra hs1
-      apply hs'
-      apply h1
-      rw [mem_progression]
-      use a, ha, s
-    · intro h1 s' hs'_progr
-      obtain ⟨a, ha, s, hs, succ⟩ := (mem_progression s').1 hs'_progr
-      by_contra hs'
-      apply Set.mem_compl at hs'
-      have hs_regr : s ∈ pt.regression S'ᶜ A := by
-        rw [mem_regression]
-        use a, ha, s'
-      have : s ∈ Sᶜ := h1 hs_regr
-      simp_all
+    pt.progression S A ⊆ S' ↔ pt.regression S'ᶜ A ⊆ Sᶜ := by
+  constructor
+  · intro h1 s hs_regr
+    obtain ⟨a, ha, s', hs', succ⟩ := (mem_regression s).1 hs_regr
+    simp only [Set.mem_compl_iff] at ⊢ hs'
+    by_contra hs1
+    apply hs'
+    apply h1
+    rw [mem_progression]
+    use a, ha, s
+  · intro h1 s' hs'_progr
+    obtain ⟨a, ha, s, hs, succ⟩ := (mem_progression s').1 hs'_progr
+    by_contra hs'
+    apply Set.mem_compl at hs'
+    have hs_regr : s ∈ pt.regression S'ᶜ A := by
+      rw [mem_regression]
+      use a, ha, s'
+    have : s ∈ Sᶜ := h1 hs_regr
+    simp_all
 
 end STRIPS

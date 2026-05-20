@@ -142,11 +142,11 @@ Given a STRIPS planning task `pt`, `Path s1 s2` is a path form the state `s1` to
 in the state space of `pt`.
 -/
 inductive Path {n} (pt : PlanningTask n) : State n → State n → Type
-/-- The empty path consisting of a single node `s`. -/
-| empty s : Path pt s s
-/-- The path consisting of the node `s`, and the path `π`, where `s[a]` is the first node of `π`.-/
-| cons a {s1} s2 {s3}
-  (ha : a ∈ pt.actions) (succ : Successor a s1 s2) (π : Path pt s2 s3) : Path pt s1 s3
+  /-- The empty path consisting of a single node `s`. -/
+  | empty s : Path pt s s
+  /-- The path consisting of the node `s`, and the path `π`, where `s[a]` is the first node of `π`.-/
+  | cons a {s1} s2 {s3}
+    (ha : a ∈ pt.actions) (succ : Successor a s1 s2) (π : Path pt s2 s3) : Path pt s1 s3
 
 /-- A plan for a state `s` for a planning task `pt` is a path from `s` to a goal state of pt. -/
 structure Plan {n} (pt : PlanningTask n) (s : State n) where
