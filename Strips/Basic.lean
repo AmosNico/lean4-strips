@@ -1,5 +1,9 @@
+module
+
 import Mathlib.Data.Fintype.Powerset
-import Strips.Core
+public import Strips.Core
+
+public section
 
 namespace STRIPS
 

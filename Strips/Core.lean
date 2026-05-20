@@ -1,5 +1,9 @@
+module
+
 import Mathlib.Data.Finset.Dedup
-import Mathlib.Data.List.Sort
+public import Mathlib.Data.List.Sort
+
+public section
 
 namespace STRIPS
 
@@ -31,7 +35,7 @@ abbrev VarSet n := Set (Fin n)
 
 abbrev VarSet' n := { vars : List (Fin n) // vars.SortedLT }
 
-def convertVarSet {n} (V : VarSet' n) : VarSet n :=
+private def convertVarSet {n} (V : VarSet' n) : VarSet n :=
   V.val.toFinset
 
 /-! ### States and sets of states
@@ -49,7 +53,7 @@ abbrev State' n := BitVec n
 
 abbrev States n := Set (State n)
 
-def convertState {n} (s' : State' n) : State n :=
+private def convertState {n} (s' : State' n) : State n :=
   { i | s'[i] }
 
 /-! ### Actions and sets of actions -/
