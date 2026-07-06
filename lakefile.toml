@@ -1,13 +1,8 @@
 name = "strips"
 version = "0.1.0"
-keywords = ["math"]
+keywords = ["automated planning", "planning", "strips"]
 defaultTargets = ["Strips"]
-
-[leanOptions]
-pp.unicode.fun = true # pretty-prints `fun a ↦ b`
-relaxedAutoImplicit = false
-weak.linter.mathlibStandardSet = true
-maxSynthPendingDepth = 3
+lintDriver = "batteries/runLinter"
 
 [[require]]
 name = "Parser"
@@ -19,7 +14,7 @@ rev = "v4.29.1"
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.29.1"
+rev = "v4.30.0"
 
 [[lean_lib]]
 name = "Strips"
