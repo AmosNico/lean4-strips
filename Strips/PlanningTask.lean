@@ -81,15 +81,25 @@ namespace PlanningTask
 def actions {n} (pt : PlanningTask n) : Actions n :=
   List.toFinset pt.actions'
 
+lemma mem_actions' {n} {pt : PlanningTask n} {a} : a ∈ pt.actions' ↔ a ∈ pt.actions := by
+  simp only [actions, List.coe_toFinset, Set.mem_setOf_eq]
+
 def init {n} (pt : PlanningTask n) : State n :=
   SetLike.coe pt.init'
 
+lemma mem_init' {n} {pt : PlanningTask n} {i} : i ∈ pt.init' ↔ i ∈ pt.init := by
+  simp only [init, SetLike.mem_coe]
+
+@[expose]
 def GoalState {n} (pt : PlanningTask n) (s : State n) : Prop :=
   SetLike.coe pt.goal' ⊆ s
 
 /-- The set of all goal states of the given planning problem. -/
 def goal_states {n} (pt : PlanningTask n) : States n :=
   { s | pt.GoalState s }
+
+lemma mem_goal_states {n} {pt : PlanningTask n} {s} : s ∈ pt.goal_states ↔ GoalState pt s := by
+  simp only [goal_states, Set.mem_setOf_eq]
 
 /-! ### Path -/
 
@@ -312,7 +322,7 @@ def progression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States
 
 /-- The progression of a set of states `S` by a set of actions `A`. -/
 def progression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States n :=
-  { s | ∃ a ∈ A, s ∈ pt.progression' S a }
+  { s | ∃ a ∈ A, s ∈ progression' pt S a }
 
 /-- The regression of a set of states `S` by an action `a`. -/
 def regression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States n :=
@@ -322,9 +332,13 @@ def regression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States 
 def regression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States n :=
   { s | ∃ a ∈ A, s ∈ regression' pt S a }
 
+lemma mem_progression' {n} {pt : PlanningTask n} {a S} :
+    ∀ s : State n, s ∈ pt.progression' S a ↔ ∃ s' ∈ S, Successor a s' s := by
+  simp only [progression', Set.mem_setOf_eq, implies_true]
+
 lemma mem_progression {n} {pt : PlanningTask n} {A S} :
     ∀ s : State n, s ∈ pt.progression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s' s := by
-  simp [progression, progression']
+  simp [progression, mem_progression']
 
 lemma mem_progression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
     (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s s') : s' ∈ pt.progression S A := by
@@ -333,9 +347,7 @@ lemma mem_progression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
 
 lemma progression_union_states {n} {pt : PlanningTask n} {S1 S2 A} :
     pt.progression (S1 ∪ S2) A = pt.progression S1 A ∪ pt.progression S2 A := by
-  ext s
-  simp [mem_progression]
-  grind
+  grind only [mem_progression, Set.mem_union]
 
 lemma progression_union_actions {n} {pt : PlanningTask n} {S A1 A2} :
     pt.progression S (A1 ∪ A2) = pt.progression S A1 ∪ pt.progression S A2 := by
@@ -356,9 +368,13 @@ lemma progression_monotone_actions {n} {pt : PlanningTask n} {S} : Monotone (pt.
   obtain ⟨a, ha, s', hs', succ⟩ := hs
   use a, hA ha, s'
 
+lemma mem_regression' {n} {pt : PlanningTask n} {a S} :
+    ∀ s : State n, s ∈ pt.regression' S a ↔ ∃ s' ∈ S, Successor a s s' := by
+  simp only [regression', Set.mem_setOf_eq, implies_true]
+
 lemma mem_regression {n} {pt : PlanningTask n} {S A} :
     ∀ s : State n, s ∈ pt.regression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s s' := by
-  simp [regression, regression']
+  simp [regression, mem_regression']
 
 lemma mem_regression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
     (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s' s) : s' ∈ pt.regression S A := by
