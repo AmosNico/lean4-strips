@@ -1,13 +1,21 @@
-# strips
+# Automated Planning in Lean 4
 
-## GitHub configuration
+This repository contains a Lean 4 library implementing the STRIPS formalism for automated planning.
 
-To set up your new GitHub repository, follow these steps:
+## Goals
 
-* Under your repository name, click **Settings**.
-* In the **Actions** section of the sidebar, click "General".
-* Check the box **Allow GitHub Actions to create and approve pull requests**.
-* Click the **Pages** section of the settings sidebar.
-* In the **Source** dropdown menu, select "GitHub Actions".
+This project originated as part of a [certificate validator for automated planning](https://github.com/AmosNico/validator). The goal is to expand it into a general-purpose library useful for anyone working on automated planning in Lean 4.
 
-After following the steps above, you can remove this section from the README file.
+The library aims to be both easy to work with for formalizing theoretical results about the automated planning, and efficient at runtime.
+
+## Usage
+
+Add the following dependency to your `lakefile.toml`:
+```toml
+[[require]]
+name = "strips"
+git = "https://github.com/AmosNico/lean4-strips"
+rev = "main"
+```
+
+Then add `import Strips` at the top of any Lean file where you want to use the library.
