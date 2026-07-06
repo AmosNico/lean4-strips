@@ -1,3 +1,3 @@
 module
 
-import Strips.Basic
+import Strips.PlanningTask

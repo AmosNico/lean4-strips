@@ -7,7 +7,7 @@ import Std.Data.Iterators.Combinators.TakeWhile
 
 import Parser
 
-public import Strips.Core
+public import Strips.PlanningTask
 
 namespace STRIPS.Parser
 /-! # Parser for STRIPS Planning Tasks

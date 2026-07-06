@@ -1,23 +1,111 @@
 module
 
-import Mathlib.Data.Fintype.Powerset
-public import Strips.Core
+public import Strips.VarSet
+import Mathlib.Data.Finset.Dedup
 
 public section
 
 namespace STRIPS
 
-/-! # Additional definitions for the STRIPS formalism
+/-!
+# Basic definitions for the STRIPS formalism
 
-This file extends `STRIPS.Core` by implementing
-* new operations for working with `Path`,
-* definition for reachability of states,
-* methods to get all (goal)states of a planning problem,
-* definitions of progression and regression,
-* lemmas to work with progression and regression.
+We define some basic definitions of the STRIPS formalism for automated planning. More specifically,
+this file implements:
+* Basic definitions of states, actions, planning tasks, etc.,
+* Definition of paths in the search space and various lemmas to work with them,
+* Definition of reachability, plans and unsolvability,
+* Progression and regression, and various lemmas to work with them.
 -/
 
-/-! ## Path -/
+/-! ## States and sets of states -/
+
+/-- A state is a set of variables, containing all variables that are true. -/
+abbrev State n := Set (Fin n)
+
+abbrev States n := Set (State n)
+
+/-! ## Actions and sets of actions -/
+
+/-- Actions in the STRIPS formalism -/
+structure Action n where
+  /-- The name of the action. -/
+  name : String
+  /-- The preconditions of the action. -/
+  pre : VarSet n
+  /-- The adding effects of the action. -/
+  add : VarSet n
+  /-- The deleting effects of the action. -/
+  del : VarSet n
+  /-- The cost of the action. -/
+  cost : ℕ
+  deriving Repr, DecidableEq
+
+abbrev Actions n := Set (Action n)
+
+/-! ## Applicability and successor states -/
+
+/-- An action is applicable in a state if all its preconditions are true in the state. -/
+abbrev Applicable {n} (s : State n) (a : Action n) : Prop := SetLike.coe a.pre ⊆ s
+
+/--
+If an action `a` is applicable in a state `s`,
+then `s[a] := (s \ a.del) ∪ a.add` is the successor of `s`.
+-/
+abbrev Successor {n} (a : Action n) (s s' : State n) : Prop :=
+  Applicable s a ∧ s' = (s \ a.del) ∪ a.add
+
+/-! ## STRIPS planning problems -/
+/--
+A planning problem in the STRIPS formalism. The variables of the planning task are all elements of
+`Fin n`. Note that most fields have two version:
+* an primed version which uses a representation that is efficient at run-time, and
+* an unprimed version which is more suited for theoretical results
+-/
+structure PlanningTask n where
+  /-- The names of the variables. -/
+  varNames : Vector String n
+  /-- The actions of the planning problem. See `STRIPS.actions` for the version using `Actions`. -/
+  actions' : List (Action n)
+  /-- The initial state of the planning problem. See `STRIPS.init` for the version using `State`. -/
+  init' : VarSet n
+  /--
+  The goal of the planning problem, indicating which variables need to be true in a goal state.
+  See also `GoalState` and `STRIPS.goal_states` in `Validator.PlanningTask.Basic`.
+  -/
+  goal' : VarSet n
+  deriving Repr
+
+namespace PlanningTask
+
+def actions {n} (pt : PlanningTask n) : Actions n :=
+  List.toFinset pt.actions'
+
+def init {n} (pt : PlanningTask n) : State n :=
+  SetLike.coe pt.init'
+
+def GoalState {n} (pt : PlanningTask n) (s : State n) : Prop :=
+  SetLike.coe pt.goal' ⊆ s
+
+/-- The set of all goal states of the given planning problem. -/
+def goal_states {n} (pt : PlanningTask n) : States n :=
+  { s | pt.GoalState s }
+
+/-! ### Path -/
+
+/--
+Given a STRIPS planning task `pt`, `Path s1 s2` is a path form the state `s1` to the state `s2`
+in the state space of `pt`.
+-/
+inductive Path {n} (pt : PlanningTask n) : State n → State n → Type
+  /-- The empty path consisting of a single node `s`. -/
+  | empty s : Path pt s s
+  /--
+  The path consisting of the node `s`, and the path `π`, where `s[a]` is the first node of `π`.
+  -/
+  | cons a {s1} s2 {s3}
+    (ha : a ∈ pt.actions) (succ : Successor a s1 s2) (π : Path pt s2 s3) : Path pt s1 s3
+
 namespace Path
 
 /-! ### snoc -/
@@ -183,9 +271,7 @@ lemma split {n} {pt : PlanningTask n} {s1 s2 s} (π : Path pt s1 s2) (h : s ∈ 
 
 end Path
 
-/-! ## Additional definitions for STRIPS -/
-
-/-! ### Reachable -/
+/-! ## Reachablility, Plans and Unsolvability -/
 
 /--
 A state `s'` is reachable from `s` if there is a path from `s` to `s'`.
@@ -200,15 +286,25 @@ lemma reachable_self {n pt} : ∀ s : State n, Reachable pt s s := by
   constructor
   exact Path.empty s
 
-namespace PlanningTask
+/-- A plan for a state `s` for a planning task `pt` is a path from `s` to a goal state of pt. -/
+structure Plan {n} (pt : PlanningTask n) (s : State n) where
+  /-- The goal state in `pt`. -/
+  last : State n
+  /-- The path from `s` to the goal state. -/
+  path : Path pt s last
+  /-- The proof that `last` is a goal state. -/
+  goal : pt.GoalState last
 
-/-! ### states and goal_states -/
+/-- A state is unsolvable if there is no plan for that state. -/
+abbrev UnsolvableState {n} (pt : PlanningTask n) (s : State n):=
+  IsEmpty (Plan pt s)
 
-/-- The set of all goal states of the given planning problem. -/
-def goal_states {n} (pt : PlanningTask n) : States n :=
-  { s | pt.GoalState s }
+/-- A planning task is unsolvable if the initial state is unsolvable. -/
+abbrev Unsolvable {n} (pt : PlanningTask n) :=
+  UnsolvableState pt pt.init
 
-/-! ### progression and regression -/
+
+/-! ## progression and regression -/
 
 /-- The progression of a set of states `S` by an action `a`. -/
 def progression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States n :=
@@ -216,7 +312,7 @@ def progression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States
 
 /-- The progression of a set of states `S` by a set of actions `A`. -/
 def progression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States n :=
-  { s | ∃ a ∈ A, s ∈ progression' pt S a }
+  { s | ∃ a ∈ A, s ∈ pt.progression' S a }
 
 /-- The regression of a set of states `S` by an action `a`. -/
 def regression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States n :=
@@ -226,11 +322,9 @@ def regression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States 
 def regression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States n :=
   { s | ∃ a ∈ A, s ∈ regression' pt S a }
 
-end PlanningTask
-
 lemma mem_progression {n} {pt : PlanningTask n} {A S} :
     ∀ s : State n, s ∈ pt.progression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s' s := by
-  simp [PlanningTask.progression, PlanningTask.progression']
+  simp [progression, progression']
 
 lemma mem_progression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
     (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s s') : s' ∈ pt.progression S A := by
@@ -264,7 +358,7 @@ lemma progression_monotone_actions {n} {pt : PlanningTask n} {S} : Monotone (pt.
 
 lemma mem_regression {n} {pt : PlanningTask n} {S A} :
     ∀ s : State n, s ∈ pt.regression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s s' := by
-  simp [PlanningTask.regression, PlanningTask.regression']
+  simp [regression, regression']
 
 lemma mem_regression_of_successor {n} {pt : PlanningTask n} {S s s' A a}
     (hs : s ∈ S) (ha : a ∈ A) (h : Successor a s' s) : s' ∈ pt.regression S A := by
@@ -292,155 +386,4 @@ lemma sub_progression_iff_sub_regression {n} {pt : PlanningTask n} {S S' A} :
     have : s ∈ Sᶜ := h1 hs_regr
     simp_all
 
--- TODO : documentation
-/-! ## VarSet -/
-namespace VarSet
-
-lemma mem_iff {n i} {V : VarSet n} : i ∈ V ↔ V.toBitVec[i] := by
-  unfold SetLike.instMembership
-  simp only [SetLike.coe, Set.mem_setOf_eq]
-
-instance {n} {i : Fin n} {V : VarSet n} : Decidable (i ∈ V) := by
-  rw [mem_iff]
-  infer_instance
-
-@[reducible]
-instance {n} : HasSubset (VarSet n) where
-  Subset V V' := ∀ i ∈ V, i ∈ V'
-
-@[simp]
-lemma mem_empty {n i} : i ∉ (∅ : VarSet n) := by
-  unfold instEmptyCollection
-  simp [mem_iff]
-
-instance {n} : Union (VarSet n) where
-  union V V' := ⟨V.toBitVec ||| V'.toBitVec⟩
-
-@[simp]
-lemma mem_union {n} {V V' : VarSet n} {i} : i ∈ V ∪  V' ↔ i ∈ V ∨ i ∈ V' := by
-  unfold instUnion
-  simp [mem_iff]
-
-@[simp]
-lemma empty_union {n} {V : VarSet n} : ∅ ∪ V = V := by
-  simp only [SetLike.ext_iff, mem_union, mem_empty, false_or, implies_true]
-
-@[simp]
-lemma union_empty {n} {V : VarSet n} : V ∪ ∅ = V := by
-  simp only [SetLike.ext_iff, mem_union, mem_empty, or_false, implies_true]
-
-instance {n} : Inter (VarSet n) where
-  inter V V' := ⟨V.toBitVec &&& V'.toBitVec⟩
-
-@[simp]
-lemma mem_inter {n} {V V' : VarSet n} {i} : i ∈ V ∩ V' ↔ i ∈ V ∧ i ∈ V' := by
-  unfold instInter
-  simp [mem_iff]
-
-@[simp]
-lemma empty_inter {n} {V : VarSet n} : ∅ ∩ V = ∅ := by
-  simp only [SetLike.ext_iff, mem_inter, mem_empty, false_and, implies_true]
-
-@[simp]
-lemma inter_eq_empty_iff {n} {V V' : VarSet n} : V ∩ V' = ∅ ↔ ∀ i ∈ V, i ∉ V' := by
-  simp only [SetLike.ext_iff, mem_inter, mem_empty, iff_false, not_and]
-
-@[simp]
-lemma mem_insert {n} {V : VarSet n} {i j} : j ∈ (V.insert i) ↔ j ∈ V ∨ j = i := by
-  simp [insert, mem_iff]
-  grind
-
-@[simp]
-lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ (ofList l) ↔ i ∈ l := by
-  simp only [ofList]
-  induction l with
-  | nil => simp only [List.foldr_nil, mem_empty, List.not_mem_nil]
-  | cons j l ih =>
-    grind only [List.mem_cons, = List.foldr_cons, mem_insert]
-
-instance {n} : Compl (VarSet n) where
-  compl V := ⟨~~~V.toBitVec⟩
-
-@[simp]
-lemma mem_compl {n} {V : VarSet n} {i} : i ∈ Vᶜ ↔ i ∉ V := by
-  unfold instCompl
-  simp [mem_iff]
-
-instance {n} : SDiff (VarSet n) where
-  sdiff V V' := ⟨V.toBitVec &&& ~~~V'.toBitVec⟩
-
-@[simp]
-lemma mem_diff {n} {V V' : VarSet n} {i} : i ∈ V \ V' ↔ i ∈ V ∧ i ∉ V' := by
-  unfold instSDiff
-  simp [mem_iff]
-
-def foldl {α n} (f : α → Fin n → α) (init : α) (V : VarSet n) : α :=
-  Fin.foldl n (fun a i ↦ if i ∈ V then f a i else a) init
-
-lemma foldl_cons {α n} {V : VarSet n} {f : Fin n → α} {a as} :
-    a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
-  simp only [foldl]
-  rcases V with ⟨V⟩
-  induction V using BitVec.cons_induction with
-  | nil => simp
-  | @cons n' b V ih =>
-    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
-      Fin.val_castSucc] at *
-    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
-    split
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, List.mem_cons, ih]
-      constructor
-      · grind
-      · rw [← or_assoc]
-        apply Or.imp_left
-        rintro ⟨i, h2, rfl⟩
-        split at h2
-        · grind
-        · apply Or.inr
-          use ⟨i.val, by omega⟩
-          simp [h2]
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
-      constructor
-      · grind
-      · apply Or.imp_left
-        rintro ⟨i, h2, rfl⟩
-        split at h2
-        · grind
-        · use ⟨i.val, by omega⟩
-          simp [h2]
-
--- TODO : can this be done more efficiently?
-def map {n m} (V : VarSet n) (f : Fin n → Fin m) : VarSet m :=
-  V.foldl (fun V' i ↦ V'.insert (f i)) ∅
-  -- Fin.foldl n (fun V' i ↦ if i ∈ V then V'.insert (f i) else V') empty
-
-lemma mem_map {n m} {V : VarSet n} {f : Fin n → Fin m} {i} :  i ∈ V.map f ↔ (∃ j ∈ V, i = f j) := by
-  simp only [map, foldl, insert]
-  rcases V with ⟨V⟩
-  induction V using BitVec.cons_induction with
-  | nil => simp
-  | @cons n' b V ih =>
-    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
-      Fin.val_castSucc] at *
-    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
-    split
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, BitVec.getElem_or, BitVec.getElem_twoPow,
-      Bool.or_eq_true, ih, decide_eq_true_eq]
-      constructor
-      · grind
-      · rintro ⟨i, h2, rfl⟩
-        split at h2
-        · grind
-        · apply Or.inl
-          use ⟨i.val, by omega⟩
-          simp [h2]
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
-      constructor
-      · grind
-      · rintro ⟨i, h2, rfl⟩
-        split at h2
-        · grind
-        · use ⟨i.val, by omega⟩
-          simp [h2]
-
-end STRIPS.VarSet
+end STRIPS.PlanningTask
