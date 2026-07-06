@@ -109,13 +109,12 @@ def parseCases' {α} (ps : List (Parser Unit × Parser α × Option String)) :
   go ps #[]
 where
   go : List (Parser Unit × Parser α × Option String) → Array String → Parser α
-    | [], ⟨e⟩, s =>
-      Parser.throwUnexpectedWithMessage none s!"expected one of the following : {e}" s
-    | (p, p', descr) :: ps, e, s =>
-      let savePos := Parser.Stream.getPosition s
-      p s >>= fun
-      | .ok s () => p' s
-      | .error s _ => go ps (push? e descr) (Parser.Stream.setPosition s savePos)
+    | [], ⟨e⟩, s, pos =>
+      Parser.throwUnexpectedWithMessage none s!"expected one of the following : {e}" s pos
+    | (p, p', descr) :: ps, e, s, pos =>
+      p s pos >>= fun
+      | .ok s pos () => p' s pos
+      | .error s _ _ => go ps (push? e descr) s pos
 
 /--
 For each of the pairs `(s, p)` in `ps1`, try to parse the string `s`. If it succeeds,
@@ -210,7 +209,7 @@ public def parseFile (path : System.FilePath) : IO (Σ n, PlanningTask n) :=
       s!"An error occured when parsing the STRIPS planning problem at \"{path}\""
       parseSTRIPS
     match p.run content with
-    | .ok _ res => return res
-    | .error _ e => throw (IO.userError (formatWithContext e content).pretty)
+    | .ok _ _ res => return res
+    | .error _ _ e => throw (IO.userError (formatWithContext e content).pretty)
 
 end STRIPS.Parser

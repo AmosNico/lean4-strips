@@ -6,15 +6,14 @@ lintDriver = "batteries/runLinter"
 
 [[require]]
 name = "Parser"
-# the version v4.29.1 was skiped, use fork
 # git = "https://github.com/fgdorais/lean4-parser"
-git = "https://gitlab.kuleuven.be/u0185131/lean4-parser.git"
-rev = "v4.29.1"
+git = "https://github.com/AmosNico/lean4-parser"
+rev = "40ccb6dcacdcdb9bf1c403225ed80827003e626a"
 
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.30.0"
+rev = "v4.31.0"
 
 [[lean_lib]]
 name = "Strips"

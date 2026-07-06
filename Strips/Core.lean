@@ -42,7 +42,7 @@ def ofList {n} (l : List (Fin n)) : VarSet n :=
 instance {n} : SetLike (VarSet n) (Fin n) where
   coe V := { i | V.toBitVec[i] }
 
-  coe_injective' := by
+  coe_injective := by
     rintro ⟨V⟩ ⟨V'⟩
     simp only [Fin.getElem_fin, Set.ext_iff, Set.mem_setOf_eq, Bool.coe_iff_coe, Fin.forall_iff,
       mk.injEq, BitVec.eq_of_getElem_eq_iff, imp_self]
