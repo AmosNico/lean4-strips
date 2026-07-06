@@ -317,18 +317,22 @@ abbrev Unsolvable {n} (pt : PlanningTask n) :=
 /-! ## progression and regression -/
 
 /-- The progression of a set of states `S` by an action `a`. -/
+@[expose]
 def progression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States n :=
   { s | ∃ s' ∈ S, Successor a s' s }
 
 /-- The progression of a set of states `S` by a set of actions `A`. -/
+@[expose]
 def progression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States n :=
   { s | ∃ a ∈ A, s ∈ progression' pt S a }
 
 /-- The regression of a set of states `S` by an action `a`. -/
+@[expose]
 def regression' {n} (_ : PlanningTask n) (S : States n) (a : Action n) : States n :=
   { s | ∃ s' ∈ S, Successor a s s' }
 
 /-- The regression of a set of states `S` by a set of actions `A`. -/
+@[expose]
 def regression {n} (pt : PlanningTask n) (S : States n) (A : Actions n) : States n :=
   { s | ∃ a ∈ A, s ∈ regression' pt S a }
 
