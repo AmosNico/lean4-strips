@@ -1,6 +1,7 @@
 module
 
 public import Mathlib.Data.SetLike.Basic
+import Batteries.Data.BitVec.Lemmas
 
 public section
 
@@ -44,6 +45,9 @@ instance {n} {i : Fin n} {V : VarSet n} : Decidable (i ∈ V) := by
 instance {n} : HasSubset (VarSet n) where
   Subset V V' := ∀ i ∈ V, i ∈ V'
 
+lemma subset_def {V V' : VarSet n} : V ⊆ V' ↔ ∀ i ∈ V, i ∈ V' := by
+  rfl
+
 instance {n} : EmptyCollection (VarSet n) where
   emptyCollection := ⟨BitVec.zero n⟩
 
@@ -60,12 +64,20 @@ lemma mem_insert {n} {V : VarSet n} {i j} : j ∈ (V.insert i) ↔ j ∈ V ∨ j
   simp [insert, mem_iff]
   grind
 
+/-- Return the `VarSet` containing all variables `i` for which `f i` is true. -/
+def ofFn {n} (f : Fin n → Bool) : VarSet n :=
+  ⟨BitVec.ofFnLE f⟩
+
+@[simp]
+lemma mem_ofFn {n} {f : Fin n → Bool} {i} : i ∈ ofFn f ↔ f i := by
+  simp only [ofFn, mem_iff, Fin.getElem_fin, BitVec.getElem_ofFnLE, Fin.eta]
+
 /-- Return the `VarSet` containing all variables in the given list. -/
 def ofList {n} (l : List (Fin n)) : VarSet n :=
   l.foldr insert ∅
 
 @[simp]
-lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ (ofList l) ↔ i ∈ l := by
+lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ ofList l ↔ i ∈ l := by
   simp only [ofList]
   induction l with
   | nil => simp only [List.foldr_nil, mem_empty, List.not_mem_nil]
