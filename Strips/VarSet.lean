@@ -14,12 +14,11 @@ This file implements set of variables with the aim to be both easy to work with 
 runtime.
 -/
 
-/-! ## Sets of variables
+/-! ## Sets of variables -/
 
-Variables have type `Fin n`, where `n` is the number of variables.
-Sets of variables are internally represented by a bitvector of length `n`.
--/
+/-- A set of variables of type `Fin n`, where `n` is the number of variables -/
 structure VarSet (n : ℕ) where
+  /-- The bitvector internally representing the set of variables. -/
   toBitVec : BitVec n
 deriving DecidableEq
 
@@ -56,6 +55,7 @@ lemma mem_empty {n i} : i ∉ (∅ : VarSet n) := by
   unfold instEmptyCollection
   simp [mem_iff]
 
+/-- Return the `VarSet` containing all variables in `V` and the variable `i`. -/
 def insert {n} (i : Fin n) (V : VarSet n) : VarSet n :=
   ⟨V.toBitVec ||| BitVec.twoPow n i⟩
 
@@ -171,6 +171,7 @@ lemma foldl_cons {α n} {V : VarSet n} {f : Fin n → α} {a as} :
         · use ⟨i.val, by omega⟩
           simp [h2]
 
+/-- Return the `VarSet` containing the variables `f i` for every variable `i` in `V`. -/
 -- TODO : can this be done more efficiently?
 def map {n m} (V : VarSet n) (f : Fin n → Fin m) : VarSet m :=
   V.foldl (fun V' i ↦ V'.insert (f i)) ∅
