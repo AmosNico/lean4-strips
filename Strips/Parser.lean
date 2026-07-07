@@ -9,15 +9,14 @@ import Parser
 
 public import Strips.PlanningTask
 
-namespace STRIPS.Parser
+namespace STRIPS
 /-! # Parser for STRIPS Planning Tasks
 
-This file defines a parser for STRIPS planning tasks (TODO : refer to Erikson).
+This file defines a parser for STRIPS planning tasks in the format used by the certificate checker
+helve, see https://github.com/salome-eriksson/helve.
 -/
 
 abbrev Parser := SimpleParser String.Slice Char
-
-/-! ## Error Handling for STRIPS parser. -/
 
 /--
 Get the line, line number and position in the line of the position `p` in `s`.
@@ -50,49 +49,28 @@ def formatWithContext : Parser.Error.Simple String.Slice Char → String → Std
     let ⟨_, n, k⟩ := positionInfo context pos
     f!"{msg} (line {n}, pos {k})" ++ .indentD (formatWithContext e context)
 
-/-! ## General Parsing functionality -/
-
-def parseSpaces : Parser Unit :=
+def dropSpaces : Parser Unit :=
   Parser.dropMany (Parser.Char.char ' ')
 
-def parseSpaces1 : Parser Unit :=
-  Parser.dropMany1 (Parser.Char.char ' ')
+def dropEol : Parser Unit :=
+  dropSpaces <* Parser.Char.eol
 
--- TODO : check whether allowing semicoloms makes sense
-def parseEol : Parser Unit :=
-  parseSpaces <* Parser.optional (Parser.Char.char ';') <* Parser.Char.eol
+def dropString (s : String) : Parser Unit :=
+  Parser.Char.chars s *> dropSpaces
 
-def checkString (s : String) : Parser Unit :=
-  Parser.Char.chars s *> parseSpaces
+def dropLine (s : String) : Parser Unit :=
+  Parser.Char.chars s *> dropEol
 
-def checkLine (s : String) : Parser Unit :=
-  Parser.Char.chars s *> parseEol
-
--- TODO : rename
 def readLine {α} (s : String) (p : Parser α) : Parser α :=
-  checkString s *> p <* parseEol
-
-def dropLine : Parser Unit :=
-  Parser.dropUntil Parser.Char.eol Parser.anyToken *> pure ()
+  dropString s *> p <* dropEol
 
 def parseLine : Parser String :=
   do
     let ⟨⟨l⟩, _⟩ ← Parser.takeUntil Parser.Char.eol Parser.anyToken
     return String.ofList l
 
-def parseWord : Parser String :=
-  do
-    let stop : Parser Unit := parseSpaces1 <|> (Parser.lookAhead Parser.Char.eol *> pure ())
-    let ⟨⟨l⟩, _⟩ ← Parser.takeUntil stop Parser.anyToken
-    return String.ofList l
-
 def parseNat : Parser ℕ :=
-  Parser.Char.ASCII.parseNat <* parseSpaces
-
-def parseListNat : Parser (List ℕ) := do
-  let n ← parseNat
-  let ⟨l⟩ ← Parser.take n parseNat
-  return l
+  Parser.Char.ASCII.parseNat <* dropSpaces
 
 abbrev push? {α} : Array α → Option α → Array α
 | xs, none => xs
@@ -125,19 +103,16 @@ pair. If all pairs fail, combine the strings in `ps1` into one error message.
 -/
 def parseCases {α} (ps1 : List (String × Parser α)) (ps2 : List (Parser Unit × Parser α) := []) :
   Parser α :=
-  let ps1' := ps1.map fun ⟨s, p⟩ ↦ ⟨checkString s, p, s⟩
+  let ps1' := ps1.map fun ⟨s, p⟩ ↦ ⟨dropString s, p, s⟩
   let ps2' := ps2.map fun ⟨p, p'⟩ ↦ ⟨p, p', none⟩
   parseCases' (ps1' ++ ps2')
-
-
-/-! ## STRIPS Parser -/
 
 def parseAtoms : Parser (Array String) :=
   Parser.withErrorMessage "error while parsing atoms"
   do
     let n ← readLine "begin_atoms:" parseNat
     let atoms ← Parser.take n parseLine
-    checkLine "end_atoms"
+    dropLine "end_atoms"
     return atoms
 
 def parseVar {n} : Parser (Fin n) :=
@@ -149,18 +124,18 @@ def parseVar {n} : Parser (Fin n) :=
     then return Fin.mk i h
     else Parser.throwUnexpected
 
-def parseVarLn {n} : Parser (Fin n) := parseVar <* parseEol
+def parseVarLn {n} : Parser (Fin n) := parseVar <* dropEol
 
 def parseVarSet {n} : Parser (VarSet n) :=
   VarSet.ofList <$> Array.toList <$> Parser.takeMany parseVarLn
 
 def parseInit n : Parser (VarSet n) :=
   Parser.withErrorMessage "error while parsing the inital state"
-    (checkLine "begin_init" *> parseVarSet <* checkLine "end_init")
+    (dropLine "begin_init" *> parseVarSet <* dropLine "end_init")
 
 def parseGoal n : Parser (VarSet n) :=
   Parser.withErrorMessage "error while parsing the goal"
-    (checkLine "begin_goal" *> parseVarSet <* checkLine "end_goal")
+    (dropLine "begin_goal" *> parseVarSet <* dropLine "end_goal")
 
 structure Conditions n where
   pre : List (Fin n)
@@ -172,12 +147,12 @@ partial def parseConditions {n} (cs : Conditions n) : Parser (Conditions n) :=
     ("PRE:", return ← parseConditions {cs with pre := (← parseVarLn) :: cs.pre}),
     ("ADD:", return ← parseConditions {cs with add := (← parseVarLn) :: cs.add}),
     ("DEL:", return ← parseConditions {cs with del := (← parseVarLn) :: cs.del}),
-    ("end_action", parseEol *> pure cs)
+    ("end_action", dropEol *> pure cs)
   ]
 
 def parseAction n : Parser (Action n) :=
   do
-    checkLine "begin_action"
+    dropLine "begin_action"
     let name ← parseLine
     let cost ← readLine "cost:" parseNat
     let ⟨pre, add, del⟩ ← parseConditions (@Conditions.mk n [] [] [])
@@ -188,10 +163,10 @@ def parseActions n : Parser (List (Action n)) :=
   do
     let k ← readLine "begin_actions:" parseNat
     let as ← Parser.take k (parseAction n)
-    checkLine "end_actions"
+    dropLine "end_actions"
     return as.toList
 
-def parseSTRIPS : Parser (Σ n, PlanningTask n) :=
+def parsePlanningTask : Parser (Σ n, PlanningTask n) :=
   do
     let atoms ← parseAtoms
     let n := atoms.size
@@ -202,14 +177,46 @@ def parseSTRIPS : Parser (Σ n, PlanningTask n) :=
     Parser.endOfInput
     return Sigma.mk n (PlanningTask.mk atoms actions init goal)
 
-public def parseFile (path : System.FilePath) : IO (Σ n, PlanningTask n) :=
+/--
+Parse a STRIPS planning problem from the given file. The file is expected to have the following
+format:
+
+    begin_atoms: <#atoms>
+    <atom 0>
+    <atom 1>
+    . . . (names of all atoms, one on each line)
+    end_atoms
+    begin_init
+    <initital state atom index 0>
+    <initital state atom index 1>
+    . . . (indexes of atoms that are true in initial state, one on each line)
+    end_init
+    begin_goal
+    <goal atom index 0>
+    <goal atom index 1>
+    . . . (indexes of atoms that are true in goal, one on each line)
+    end_goal
+    begin_actions: <#actions>
+    begin_action
+    <action_name>
+    cost: <action_cost>
+    PRE: <precondition atom index 0>
+    ADD: <added atom index 0>
+    DEL: <deleted atom index 0>
+    . . . (more PRE, ADD and DEL in any order, one on each line)
+    end_action
+    . . . (more actions)
+    end_actions
+
+-/
+public def readPlanningTask (path : System.FilePath) : IO (Σ n, PlanningTask n) :=
   do
     let content ← IO.FS.readFile path
     let p := Parser.withErrorMessage
       s!"An error occured when parsing the STRIPS planning problem at \"{path}\""
-      parseSTRIPS
+      parsePlanningTask
     match p.run content with
     | .ok _ _ res => return res
     | .error _ _ e => throw (IO.userError (formatWithContext e content).pretty)
 
-end STRIPS.Parser
+end STRIPS
