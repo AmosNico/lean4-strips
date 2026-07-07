@@ -21,7 +21,7 @@ Sets of variables are internally represented by a bitvector of length `n`.
 -/
 structure VarSet (n : ℕ) where
   toBitVec : BitVec n
-deriving DecidableEq, Repr
+deriving DecidableEq
 
 namespace VarSet
 
@@ -204,5 +204,13 @@ lemma mem_map {n m} {V : VarSet n} {f : Fin n → Fin m} {i} :  i ∈ V.map f �
         · grind
         · use ⟨i.val, by omega⟩
           simp [h2]
+
+instance {n} : Std.ToFormat (VarSet n) where
+  format V :=
+    let enum := V.foldl (fun f i ↦ if f.isEmpty then toString i else f!"{f}, {i}") .nil
+    Std.Format.bracketFill "{" enum "}"
+
+instance {n} : ToString (VarSet n) where
+  toString V := (Std.ToFormat.format V).pretty
 
 end STRIPS.VarSet

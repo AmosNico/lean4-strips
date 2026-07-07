@@ -39,7 +39,14 @@ structure Action n where
   del : VarSet n
   /-- The cost of the action. -/
   cost : ℕ
-  deriving Repr, DecidableEq
+  deriving DecidableEq
+
+instance {n} : Std.ToFormat (Action n) where
+  format a :=
+    f!"{a.name}:" ++ .indentD f!"pre = {a.pre}\nadd = {a.add}\ndel = {a.del}\ncost = {a.cost}"
+
+instance {n} : ToString (Action n) where
+  toString a := (Std.ToFormat.format a).pretty
 
 abbrev Actions n := Set (Action n)
 
@@ -74,9 +81,18 @@ structure PlanningTask n where
   See also `GoalState` and `STRIPS.goal_states` in `Validator.PlanningTask.Basic`.
   -/
   goal' : VarSet n
-  deriving Repr
 
 namespace PlanningTask
+
+instance {n} : Std.ToFormat (PlanningTask n) where
+  format pt :=
+    let vars := Std.Format.indentD <| Std.Format.joinSep
+      (Fin.foldr n (fun i l ↦ f!"{i} ↦ {pt.varNames[i]}" :: l) []) .line
+    let actions := Std.Format.indentD (Std.Format.joinSep pt.actions' .line)
+    f!"variables:{vars}\ninit = {pt.init'}\ngoal = {pt.goal'}\nactions:{actions}"
+
+instance {n} : ToString (PlanningTask n) where
+  toString pt := (Std.ToFormat.format pt).pretty
 
 def actions {n} (pt : PlanningTask n) : Actions n :=
   List.toFinset pt.actions'

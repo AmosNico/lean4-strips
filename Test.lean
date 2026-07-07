@@ -8,6 +8,6 @@ def main : IO Unit :=
       let path <- IO.currentDir
       let pt_path := path / "test" / "task1.txt"
       let ⟨_, pt⟩ <- Parser.parseFile pt_path
-      IO.println (repr pt)
+      IO.println pt
     catch e =>
       IO.println e
