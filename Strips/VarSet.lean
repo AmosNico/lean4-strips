@@ -64,6 +64,13 @@ lemma mem_insert {n} {V : VarSet n} {i j} : j ∈ (V.insert i) ↔ j ∈ V ∨ j
   simp [insert, mem_iff]
   grind
 
+/-- Return the `VarSet` containing all variables. -/
+def all {n} : VarSet n := ⟨BitVec.allOnes n⟩
+
+@[simp]
+lemma mem_all {n} {i : Fin n} : i ∈ all := by
+  simp only [all, mem_iff, Fin.getElem_fin, BitVec.getElem_allOnes]
+
 /-- Return the `VarSet` containing all variables `i` for which `f i` is true. -/
 def ofFn {n} (f : Fin n → Bool) : VarSet n :=
   ⟨BitVec.ofFnLE f⟩
