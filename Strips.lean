@@ -1,3 +1,3 @@
 module
 
-import Strips.PlanningTask
+public import Strips.Parser
