@@ -388,13 +388,13 @@ lemma progression_union_actions {n} {S : States n} {A1 A2} :
 lemma progression_monotone_states {n} {A : Actions n} :
     Monotone (progression · A) := by
   intro S1 S2 hS s hs
-  simp_all only [Set.le_eq_subset, mem_progression]
+  simp_all only [mem_progression]
   obtain ⟨a, ha, s', hs', succ⟩ := hs
   use a, ha, s', hS hs'
 
 lemma progression_monotone_actions {n} {S : States n} : Monotone (progression S) := by
   intro A1 A2 hA s hs
-  simp_all only [Set.le_eq_subset, mem_progression]
+  simp_all only [mem_progression]
   obtain ⟨a, ha, s', hs', succ⟩ := hs
   use a, hA ha, s'
 
