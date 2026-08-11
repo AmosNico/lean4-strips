@@ -29,12 +29,12 @@ instance {n} : SetLike (VarSet n) (Fin n) where
 
   coe_injective := by
     rintro ⟨V⟩ ⟨V'⟩
-    simp only [Fin.getElem_fin, Set.ext_iff, Set.mem_setOf_eq, Bool.coe_iff_coe, Fin.forall_iff,
+    simp only [Fin.getElem_fin, Set.ext_iff, Set.mem_ofPred, Bool.coe_iff_coe, Fin.forall_iff,
       mk.injEq, BitVec.eq_of_getElem_eq_iff, imp_self]
 
 lemma mem_iff {n i} {V : VarSet n} : i ∈ V ↔ V.toBitVec[i] := by
   unfold SetLike.instMembership
-  simp only [SetLike.coe, Set.mem_setOf_eq]
+  simp only [SetLike.coe, Set.mem_ofPred]
 
 instance {n} {i : Fin n} {V : VarSet n} : Decidable (i ∈ V) := by
   rw [mem_iff]

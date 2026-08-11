@@ -105,7 +105,7 @@ def actions {n} (pt : PlanningTask n) : Actions n :=
   List.toFinset pt.actions'
 
 lemma mem_actions' {n} {pt : PlanningTask n} {a} : a ∈ pt.actions' ↔ a ∈ pt.actions := by
-  simp only [actions, List.coe_toFinset, Set.mem_setOf_eq]
+  simp only [actions, List.coe_toFinset, Set.mem_ofPred]
 
 /-- The initial state of the planning task. -/
 def init {n} (pt : PlanningTask n) : State n :=
@@ -124,7 +124,7 @@ def goalStates {n} (pt : PlanningTask n) : States n :=
   { s | pt.GoalState s }
 
 lemma mem_goalStates {n} {pt : PlanningTask n} {s} : s ∈ pt.goalStates ↔ GoalState pt s := by
-  simp only [goalStates, Set.mem_setOf_eq]
+  simp only [goalStates, Set.mem_ofPred]
 
 /-! ### Path -/
 
@@ -364,7 +364,7 @@ def regression {n} (S : States n) (A : Actions n) : States n :=
 
 lemma mem_progression' {n a S} :
     ∀ s : State n, s ∈ progression' S a ↔ ∃ s' ∈ S, Successor a s' s := by
-  simp only [progression', Set.mem_setOf_eq, implies_true]
+  simp only [progression', Set.mem_ofPred, implies_true]
 
 lemma mem_progression {n A S} :
     ∀ s : State n, s ∈ progression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s' s := by
@@ -400,7 +400,7 @@ lemma progression_monotone_actions {n} {S : States n} : Monotone (progression S)
 
 lemma mem_regression' {n} {S : States n} {a} :
     ∀ s, s ∈ regression' S a ↔ ∃ s' ∈ S, Successor a s s' := by
-  simp only [regression', Set.mem_setOf_eq, implies_true]
+  simp only [regression', Set.mem_ofPred, implies_true]
 
 lemma mem_regression {n} {S : States n} {A} :
     ∀ s, s ∈ regression S A ↔ ∃ a ∈ A, ∃ s' ∈ S, Successor a s s' := by
