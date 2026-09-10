@@ -36,15 +36,17 @@ lemma mem_iff {n i} {V : VarSet n} : i ∈ V ↔ V.toBitVec[i] := by
   unfold SetLike.instMembership
   simp only [SetLike.coe, Set.mem_ofPred]
 
-instance {n} {i : Fin n} {V : VarSet n} : Decidable (i ∈ V) := by
-  rw [mem_iff]
-  infer_instance
+instance {n} {i : Fin n} {V : VarSet n} : Decidable (i ∈ V) :=
+  decidable_of_iff' V.toBitVec[i] mem_iff
 
 @[reducible]
 instance {n} : HasSubset (VarSet n) where
   Subset V V' := ∀ i ∈ V, i ∈ V'
 
-lemma subset_def {V V' : VarSet n} : V ⊆ V' ↔ ∀ i ∈ V, i ∈ V' := by
+instance {n} {V V' : VarSet n} : Decidable (V ⊆ V') :=
+  inferInstanceAs <| Decidable <| ∀ i ∈ V, i ∈ V'
+
+lemma subset_iff {n} {V V' : VarSet n} : V ⊆ V' ↔ ∀ i ∈ V, i ∈ V' := by
   rfl
 
 instance {n} : EmptyCollection (VarSet n) where
