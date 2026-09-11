@@ -46,6 +46,10 @@ instance {n} : HasSubset (VarSet n) where
 instance {n} {V V' : VarSet n} : Decidable (V ⊆ V') :=
   inferInstanceAs <| Decidable <| ∀ i ∈ V, i ∈ V'
 
+@[ext, grind ext]
+lemma ext {n} {V V' : VarSet n} : (∀ i, i ∈ V ↔ i ∈ V') → V = V' :=
+  SetLike.ext
+
 lemma subset_iff {n} {V V' : VarSet n} : V ⊆ V' ↔ ∀ i ∈ V, i ∈ V' := by
   rfl
 
