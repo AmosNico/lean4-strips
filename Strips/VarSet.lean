@@ -66,8 +66,17 @@ def insert {n} (i : Fin n) (V : VarSet n) : VarSet n :=
   ⟨V.toBitVec ||| BitVec.twoPow n i⟩
 
 @[simp]
-lemma mem_insert {n} {V : VarSet n} {i j} : j ∈ (V.insert i) ↔ j ∈ V ∨ j = i := by
+lemma mem_insert {n} {V : VarSet n} {i j} : j ∈ V.insert i ↔ j ∈ V ∨ j = i := by
   simp [insert, mem_iff]
+  grind
+
+/-- Return the `VarSet` containing all variables in `V` except the variable `i`. -/
+def erase {n} (i : Fin n) (V : VarSet n) : VarSet n :=
+  ⟨V.toBitVec &&& ~~~BitVec.twoPow n i⟩
+
+@[simp]
+lemma mem_erase {n} {V : VarSet n} {i j} : j ∈ V.erase i ↔ j ∈ V ∧ j ≠ i := by
+  simp [erase, mem_iff]
   grind
 
 /-- Return the `VarSet` containing all variables. -/
