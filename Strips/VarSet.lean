@@ -99,12 +99,18 @@ def ofList {n} (l : List (Fin n)) : VarSet n :=
   l.foldr insert ∅
 
 @[simp]
+lemma ofList_nil {n} : @ofList n [] = ∅ := by
+  simp only [ofList, List.foldr_nil]
+
+@[simp]
+lemma ofList_cons {n} {l : List (Fin n)} {i} : ofList (i :: l) = (ofList l).insert i := by
+  simp only [ofList, List.foldr_cons]
+
+@[simp]
 lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ ofList l ↔ i ∈ l := by
-  simp only [ofList]
   induction l with
-  | nil => simp only [List.foldr_nil, mem_empty, List.not_mem_nil]
-  | cons j l ih =>
-    grind only [List.mem_cons, = List.foldr_cons, mem_insert]
+  | nil => simp only [ofList_nil, mem_empty, List.not_mem_nil]
+  | cons j l ih => grind only [ofList_cons, mem_insert, List.mem_cons]
 
 instance {n} : Union (VarSet n) where
   union V V' := ⟨V.toBitVec ||| V'.toBitVec⟩
