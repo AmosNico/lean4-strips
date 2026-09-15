@@ -195,16 +195,12 @@ private lemma foldlAux_induction {α n} {V : VarSet n} {motive : ℕ → α → 
   | case1 start init h => exact hend start init h hinit
   | case2 start init j h1 h2 ih => exact ih (hnext _ _ _ h1 hinit)
 
-/--
-Folds a function over all variables in `V` with starting value `init`. The variables are combined
-in increasing order.
--/
 def foldl {α n} (f : α → Fin n → α) (init : α) (V : VarSet n) : α :=
   match n with
   | 0 => init
   | _ + 1 => foldlAux f 0 init V
 
-lemma foldl_induction {α n} {V : VarSet n} (motive : ℕ → α → Prop) {f : α → Fin n → α} {init : α}
+lemma foldl_induction {α n} {V : VarSet n} {motive : ℕ → α → Prop} {f : α → Fin n → α} {init : α}
     (hinit : motive 0 init)
     (hnext : ∀ j a i, V.next? j = some i → motive j a → motive (i + 1) (f a i))
     (hend : ∀ j a, V.next? j = none → motive j a → motive n a) :
@@ -213,19 +209,113 @@ lemma foldl_induction {α n} {V : VarSet n} (motive : ℕ → α → Prop) {f : 
   | 0 => hinit
   | _ + 1 => foldlAux_induction hinit hnext hend
 
-lemma foldl_cons' {α n} {V : VarSet n} {f : Fin n → α} {a as} :
-    a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
-  apply foldl_induction (fun i' as' ↦ a ∈ as' ↔ (∃ i, i ∈ V ∧ a = f i) ∨ a ∈ as)
+/--
+The smallest variable larger than `i` which is a member of `V`.
+Returns `none` if no member of `V` is larger then `i`.
+-/
+-- TODO : replace by `Std.Iterator` instance
+def next? {n} (V : VarSet n) (i : Fin n) : Option (Fin n) :=
+  if h : i + 1 < n then
+    let j : Fin n := ⟨i + 1, h⟩
+    if j ∈ V then some j else V.next? j
+  else
+    none
+
+@[simp, grind .]
+lemma next?_mem {n} {V : VarSet n} {i j : Fin n} : V.next? i = j → j ∈ V := by
+  fun_induction next? <;> grind only
+
+@[simp, grind .]
+lemma monotone_next? {n} {V : VarSet n} {i j : Fin n} : V.next? i = j → i < j := by
+  fun_induction next? <;> grind only [= Lean.Grind.toInt_fin]
+
+private def foldlAux {α n} (f : α → Fin n → α) (start : Fin n) (init : α) (V : VarSet n) : α :=
+  match h : V.next? start with
+  | none => init
+  | some j =>
+    have := monotone_next? h
+    foldlAux f j (f init j) V
+termination_by n - start
+
+private lemma foldlAux_induction {α n} {V : VarSet n} {motive : ℕ → α → Prop} {f start init}
+    (hinit : motive start.val init)
+    (hnext : ∀ j a i, V.next? j = some i → motive (j + 1) a →  motive (i + 1) (f a i))
+    (hend : ∀ j a, V.next? j = none → motive j a → motive n a) :
+    motive n (foldlAux f start init V) := by
+  fun_induction foldlAux with
+  | case1 start init h => exact hend start init h hinit
+  | case2 start init j h1 h2 ih =>
+    apply ih
+
+    simp only [foldl]
+    cases n with
+    | zero => exact hinit
+    | succ n =>
+      simp only
+      sorry
+    simp only [foldl]
+    rcases V with ⟨V⟩
+    induction V using BitVec.cons_induction with
+    | nil =>
+      simp only [BitVec.ofNat_eq_ofNat, Fin.foldl_zero]
+      exact hinit
+    | @cons n' b V ih =>
+      simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
+        Fin.val_castSucc] at *
+      have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
+      split
+      · simp only [BitVec.getElem_cons, h1, ↓reduceDIte]
+
+        constructor
+        · grind
+        · rw [← or_assoc]
+          apply Or.imp_left
+          rintro ⟨i, h2, rfl⟩
+          split at h2
+          · grind
+          · apply Or.inr
+            use ⟨i.val, by omega⟩
+            simp [h2]
+      · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
+        constructor
+        · grind
+        · apply Or.imp_left
+          rintro ⟨i, h2, rfl⟩
+          split at h2
+          · grind
+          · use ⟨i.val, by omega⟩
+            simp [h2]
+      sorry
+
+def foldl {α n} (f : α → Fin n → α) (init : α) (V : VarSet n) : α :=
+  match n with
+  | 0 => init
+  | _ + 1 => foldl_aux f 0 init V
+
+lemma foldl_induction {α n} {V : VarSet n} {motive : ℕ → α → Prop} {f : α → Fin n → α} {init : α}
+    (hinit : motive 0 init)
+    (hnext : ∀ j a i, motive j.val a → V.next? j = some i → motive (i + 1) (f a i))
+    (hend : ∀ j a, motive j.val a → V.next? j = none → motive n a) :
+    motive n (foldl f init V) := by
+  simp only [foldl]
+  cases n with
+  | zero => exact hinit
+  | succ n =>
+    simp only
+    sorry
   simp only [foldl]
   rcases V with ⟨V⟩
   induction V using BitVec.cons_induction with
-  | nil => simp
+  | nil =>
+    simp only [BitVec.ofNat_eq_ofNat, Fin.foldl_zero]
+    exact hinit
   | @cons n' b V ih =>
     simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
       Fin.val_castSucc] at *
     have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
     split
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, List.mem_cons, ih]
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte]
+
       constructor
       · grind
       · rw [← or_assoc]
@@ -245,6 +335,128 @@ lemma foldl_cons' {α n} {V : VarSet n} {f : Fin n → α} {a as} :
         · grind
         · use ⟨i.val, by omega⟩
           simp [h2]
+    sorry
+
+lemma foldl_induction {α n} {V : VarSet n} {motive : ℕ → α → Prop} {f : α → Fin n → α} {init : α}
+    (hinit : motive 0 init)
+    (hnext : ∀ j a i, motive j.val a → V.next? j = some i → motive (i + 1) (f a i)) :
+    motive n (foldl f init V) := by
+  simp only [foldl]
+  rcases V with ⟨V⟩
+  induction V using BitVec.cons_induction with
+  | nil =>
+    simp only [BitVec.ofNat_eq_ofNat, Fin.foldl_zero]
+    exact hinit
+  | @cons n' b V ih =>
+    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
+      Fin.val_castSucc] at *
+    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
+    split
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte]
+
+      constructor
+      · grind
+      · rw [← or_assoc]
+        apply Or.imp_left
+        rintro ⟨i, h2, rfl⟩
+        split at h2
+        · grind
+        · apply Or.inr
+          use ⟨i.val, by omega⟩
+          simp [h2]
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
+      constructor
+      · grind
+      · apply Or.imp_left
+        rintro ⟨i, h2, rfl⟩
+        split at h2
+        · grind
+        · use ⟨i.val, by omega⟩
+          simp [h2]
+    sorry
+
+/--
+Folds a function over all variables in `V` with starting value `init`. The variables are combined
+in increasing order.
+-/
+def foldl {α n} (f : α → Fin n → α) (init : α) (V : VarSet n) : α :=
+  Fin.foldl n (fun a i ↦ if i ∈ V then f a i else a) init
+
+lemma foldl_induction {α n} {V : VarSet n} {motive : ℕ → α → Prop} {f : α → Fin n → α} {init : α}
+    (hinit : motive 0 init)
+    (hmem : ∀ j a i (hi : i ∈ V) (hj : j ≤ i), motive j a → motive (i + 1) (f a i)) :
+    motive n (foldl f init V) := by
+  simp only [foldl]
+  rcases V with ⟨V⟩
+  induction V using BitVec.cons_induction with
+  | nil =>
+    simp only [BitVec.ofNat_eq_ofNat, Fin.foldl_zero]
+    exact hinit
+  | @cons n' b V ih =>
+    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
+      Fin.val_castSucc] at *
+    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
+    split
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte]
+
+      constructor
+      · grind
+      · rw [← or_assoc]
+        apply Or.imp_left
+        rintro ⟨i, h2, rfl⟩
+        split at h2
+        · grind
+        · apply Or.inr
+          use ⟨i.val, by omega⟩
+          simp [h2]
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
+      constructor
+      · grind
+      · apply Or.imp_left
+        rintro ⟨i, h2, rfl⟩
+        split at h2
+        · grind
+        · use ⟨i.val, by omega⟩
+          simp [h2]
+    sorry
+
+lemma foldl_induction {α n} {V : VarSet n} {motive : ℕ → α → Prop} {f : α → Fin n → α} {init : α}
+    (hinit : motive 0 init)
+    (hmem : ∀ j a i (hi : i ∈ V) (hj : j ≤ i), motive j a → motive (i + 1) (f a i)) :
+    motive n (foldl f init V) := by
+  simp only [foldl]
+  rcases V with ⟨V⟩
+  induction V using BitVec.cons_induction with
+  | nil =>
+    simp only [BitVec.ofNat_eq_ofNat, Fin.foldl_zero]
+    exact hinit
+  | @cons n' b V ih =>
+    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
+      Fin.val_castSucc] at *
+    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
+    split
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte]
+
+      constructor
+      · grind
+      · rw [← or_assoc]
+        apply Or.imp_left
+        rintro ⟨i, h2, rfl⟩
+        split at h2
+        · grind
+        · apply Or.inr
+          use ⟨i.val, by omega⟩
+          simp [h2]
+    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
+      constructor
+      · grind
+      · apply Or.imp_left
+        rintro ⟨i, h2, rfl⟩
+        split at h2
+        · grind
+        · use ⟨i.val, by omega⟩
+          simp [h2]
+    sorry
 
 lemma foldl_cons {α n} {V : VarSet n} {f : Fin n → α} {a as} :
     a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
