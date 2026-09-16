@@ -247,6 +247,10 @@ lemma toList_nodup {n} {V : VarSet n} : V.toList.Nodup := by
   · grind only [List.pairwise_cons, List.mem_cons]
   · grind only
 
+@[simp, grind =]
+lemma ofList_toList {n} {V : VarSet n} : VarSet.ofList V.toList = V := by
+  simp only [VarSet.ext_iff, mem_ofList, mem_toList, implies_true]
+
 instance {n} : Std.ToFormat (VarSet n) where
   format V :=
     let enum := V.foldl (fun f i ↦ if f.isEmpty then toString i else f!"{f}, {i}") .nil
