@@ -215,36 +215,45 @@ lemma foldl_induction {α n} {V : VarSet n} (motive : ℕ → α → Prop) {f : 
 
 lemma foldl_cons' {α n} {V : VarSet n} {f : Fin n → α} {a as} :
     a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
-  apply foldl_induction (fun i' as' ↦ a ∈ as' ↔ (∃ i, i ∈ V ∧ a = f i) ∨ a ∈ as)
-  simp only [foldl]
-  rcases V with ⟨V⟩
-  induction V using BitVec.cons_induction with
-  | nil => simp
-  | @cons n' b V ih =>
-    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
-      Fin.val_castSucc] at *
-    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
+  simp [foldl]
+  cases n with
+  | zero => simp only [IsEmpty.exists_iff, false_or]
+  | succ n =>
+    simp only
+    fun_induction foldlAux
     split
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, List.mem_cons, ih]
-      constructor
-      · grind
-      · rw [← or_assoc]
-        apply Or.imp_left
-        rintro ⟨i, h2, rfl⟩
-        split at h2
+    next => simp only [IsEmpty.exists_iff, false_or]
+    next n'
+    apply foldl_induction (fun i' as' ↦ a ∈ as' ↔ (∃ i, i ∈ V ∧ a = f i) ∨ a ∈ as)
+    simp only [foldl]
+    rcases V with ⟨V⟩
+    induction V using BitVec.cons_induction with
+    | nil => simp
+    | @cons n' b V ih =>
+      simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
+        Fin.val_castSucc] at *
+      have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
+      split
+      · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, List.mem_cons, ih]
+        constructor
         · grind
-        · apply Or.inr
-          use ⟨i.val, by omega⟩
-          simp [h2]
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
-      constructor
-      · grind
-      · apply Or.imp_left
-        rintro ⟨i, h2, rfl⟩
-        split at h2
+        · rw [← or_assoc]
+          apply Or.imp_left
+          rintro ⟨i, h2, rfl⟩
+          split at h2
+          · grind
+          · apply Or.inr
+            use ⟨i.val, by omega⟩
+            simp [h2]
+      · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
+        constructor
         · grind
-        · use ⟨i.val, by omega⟩
-          simp [h2]
+        · apply Or.imp_left
+          rintro ⟨i, h2, rfl⟩
+          split at h2
+          · grind
+          · use ⟨i.val, by omega⟩
+            simp [h2]
 
 lemma foldl_cons {α n} {V : VarSet n} {f : Fin n → α} {a as} :
     a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
