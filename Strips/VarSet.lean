@@ -94,24 +94,6 @@ def ofFn {n} (f : Fin n → Bool) : VarSet n :=
 lemma mem_ofFn {n} {f : Fin n → Bool} {i} : i ∈ ofFn f ↔ f i := by
   simp only [ofFn, mem_iff, Fin.getElem_fin, BitVec.getElem_ofFnLE, Fin.eta]
 
-/-- Return the `VarSet` containing all variables in the given list. -/
-def ofList {n} (l : List (Fin n)) : VarSet n :=
-  l.foldr insert ∅
-
-@[simp]
-lemma ofList_nil {n} : @ofList n [] = ∅ := by
-  simp only [ofList, List.foldr_nil]
-
-@[simp]
-lemma ofList_cons {n} {l : List (Fin n)} {i} : ofList (i :: l) = (ofList l).insert i := by
-  simp only [ofList, List.foldr_cons]
-
-@[simp]
-lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ ofList l ↔ i ∈ l := by
-  induction l with
-  | nil => simp only [ofList_nil, mem_empty, List.not_mem_nil]
-  | cons j l ih => grind only [ofList_cons, mem_insert, List.mem_cons]
-
 instance {n} : Union (VarSet n) where
   union V V' := ⟨V.toBitVec ||| V'.toBitVec⟩
 
@@ -167,37 +149,29 @@ in increasing order.
 def foldl {α n} (f : α → Fin n → α) (init : α) (V : VarSet n) : α :=
   Fin.foldl n (fun a i ↦ if i ∈ V then f a i else a) init
 
+lemma foldl_induction {α n} {V : VarSet n} (motive : ℕ → α → Prop) {f : α → Fin n → α} {init : α}
+    (hinit : motive 0 init)
+    (hmem : ∀ a i, i ∈ V → motive i a → motive (i + 1) (f a i))
+    (hnmem : ∀ a i, i ∉ V → motive i a → motive (i + 1) a) :
+    motive n (foldl f init V) := by
+  suffices h : ∀ i (_ : i ≤ n), motive i
+      (Fin.foldl i (fun a i ↦ if ⟨i, by omega⟩ ∈ V then f a ⟨i, by omega⟩ else a) init) by
+    simp only [foldl, h n le_rfl]
+  intro i hi
+  induction i with
+  | zero => exact hinit
+  | succ i ih =>
+    simp only [Fin.foldl_succ_last, Fin.val_last, Fin.val_castSucc]
+    split
+    next h => exact hmem _ _ h (ih (by omega))
+    next h => exact hnmem _ _ h (ih (by omega))
+
 lemma foldl_cons {α n} {V : VarSet n} {f : Fin n → α} {a as} :
     a ∈ V.foldl (fun a i ↦ f i :: a) as ↔ (∃ i ∈ V, a = f i) ∨ a ∈ as := by
-  simp only [foldl]
-  rcases V with ⟨V⟩
-  induction V using BitVec.cons_induction with
-  | nil => simp
-  | @cons n' b V ih =>
-    simp only [mem_iff, Fin.getElem_fin, Fin.foldl_succ_last, Fin.val_last,
-      Fin.val_castSucc] at *
-    have h1 : ∀ i : Fin n', i.val ≠ n' := by omega
-    split
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, List.mem_cons, ih]
-      constructor
-      · grind
-      · rw [← or_assoc]
-        apply Or.imp_left
-        rintro ⟨i, h2, rfl⟩
-        split at h2
-        · grind
-        · apply Or.inr
-          use ⟨i.val, by omega⟩
-          simp [h2]
-    · simp only [BitVec.getElem_cons, h1, ↓reduceDIte, ih]
-      constructor
-      · grind
-      · apply Or.imp_left
-        rintro ⟨i, h2, rfl⟩
-        split at h2
-        · grind
-        · use ⟨i.val, by omega⟩
-          simp [h2]
+  let invariant (k : ℕ) (l : List α) := a ∈ l ↔ (∃ i ∈ V, i < k ∧ a = f i) ∨ a ∈ as
+  suffices invariant n (V.foldl (fun a i ↦ f i :: a) as) by grind only
+  apply foldl_induction invariant <;> grind only [= List.mem_cons]
+
 
 /-- Return the `VarSet` containing the variables `f i` for every variable `i` in `V`. -/
 -- TODO : can this be done more efficiently?
@@ -233,6 +207,45 @@ lemma mem_map {n m} {V : VarSet n} {f : Fin n → Fin m} {i} :  i ∈ V.map f �
         · grind
         · use ⟨i.val, by omega⟩
           simp [h2]
+
+/-- Return the `VarSet` containing all variables in the given list. -/
+def ofList {n} (l : List (Fin n)) : VarSet n :=
+  l.foldr insert ∅
+
+@[simp]
+lemma ofList_nil {n} : @ofList n [] = ∅ := by
+  simp only [ofList, List.foldr_nil]
+
+@[simp]
+lemma ofList_cons {n} {l : List (Fin n)} {i} : ofList (i :: l) = (ofList l).insert i := by
+  simp only [ofList, List.foldr_cons]
+
+@[simp]
+lemma mem_ofList {n} {l : List (Fin n)} {i} : i ∈ ofList l ↔ i ∈ l := by
+  induction l with
+  | nil => simp only [ofList_nil, mem_empty, List.not_mem_nil]
+  | cons j l ih => grind only [ofList_cons, mem_insert, List.mem_cons]
+
+/-- The list containing all variables in the given `VarSet`, in no particular order. -/
+/-
+TODO : Currently all variables are returned in decreasing order.
+After changing this to increasing order, it might make sense to expose the order in the API.
+-/
+def toList {n} (V : VarSet n) : List (Fin n) :=
+  V.foldl (Function.swap List.cons) []
+
+@[simp]
+lemma mem_toList {n} {V : VarSet n} : ∀ i, i ∈ V.toList ↔ i ∈ V := by
+  simp only [toList, foldl_cons, exists_eq_right', List.not_mem_nil, or_false, implies_true]
+
+lemma toList_nodup {n} {V : VarSet n} : V.toList.Nodup := by
+  rw [List.nodup_iff_pairwise_ne, toList]
+  let invariant (k : ℕ) (l : List (Fin n)) := l.Pairwise (· ≠ ·) ∧ ∀ i ∈ l, i < k
+  suffices h : invariant n (V.foldl (Function.swap List.cons) []) from h.1
+  apply foldl_induction invariant
+  · grind only [List.Pairwise.nil, List.not_mem_nil]
+  · grind only [List.pairwise_cons, List.mem_cons]
+  · grind only
 
 instance {n} : Std.ToFormat (VarSet n) where
   format V :=
