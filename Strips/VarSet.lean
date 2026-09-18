@@ -104,11 +104,20 @@ lemma mem_union {n} {V V' : VarSet n} {i} : i ∈ V ∪  V' ↔ i ∈ V ∨ i �
 
 @[simp]
 lemma empty_union {n} {V : VarSet n} : ∅ ∪ V = V := by
-  simp only [SetLike.ext_iff, mem_union, mem_empty, false_or, implies_true]
+  simp only [VarSet.ext_iff, mem_union, mem_empty, false_or, implies_true]
 
 @[simp]
 lemma union_empty {n} {V : VarSet n} : V ∪ ∅ = V := by
-  simp only [SetLike.ext_iff, mem_union, mem_empty, or_false, implies_true]
+  simp only [VarSet.ext_iff, mem_union, mem_empty, or_false, implies_true]
+
+lemma union_comm {n} {V1 V2 : VarSet n} : V1 ∪ V2 = V2 ∪ V1 := by
+  ext i
+  grind only [mem_union]
+
+@[simp]
+lemma union_assoc {n} {V1 V2 V3 : VarSet n} : V1 ∪ V2 ∪ V3 = V1 ∪ (V2 ∪ V3) := by
+  ext i
+  grind only [mem_union]
 
 instance {n} : Inter (VarSet n) where
   inter V V' := ⟨V.toBitVec &&& V'.toBitVec⟩
@@ -120,11 +129,20 @@ lemma mem_inter {n} {V V' : VarSet n} {i} : i ∈ V ∩ V' ↔ i ∈ V ∧ i ∈
 
 @[simp]
 lemma empty_inter {n} {V : VarSet n} : ∅ ∩ V = ∅ := by
-  simp only [SetLike.ext_iff, mem_inter, mem_empty, false_and, implies_true]
+  simp only [VarSet.ext_iff, mem_inter, mem_empty, false_and, implies_true]
+
+lemma inter_comm {n} {V1 V2 : VarSet n} : V1 ∩ V2 = V2 ∩ V1 := by
+  ext i
+  grind only [mem_inter]
+
+@[simp]
+lemma inter_assoc {n} {V1 V2 V3 : VarSet n} : V1 ∩ V2 ∩ V3 = V1 ∩ (V2 ∩ V3) := by
+  ext i
+  grind only [mem_inter]
 
 @[simp]
 lemma inter_eq_empty_iff {n} {V V' : VarSet n} : V ∩ V' = ∅ ↔ ∀ i ∈ V, i ∉ V' := by
-  simp only [SetLike.ext_iff, mem_inter, mem_empty, iff_false, not_and]
+  simp only [VarSet.ext_iff, mem_inter, mem_empty, iff_false, not_and]
 
 instance {n} : Compl (VarSet n) where
   compl V := ⟨~~~V.toBitVec⟩
