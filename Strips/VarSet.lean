@@ -1,6 +1,6 @@
 module
 
-public import Mathlib.Data.SetLike.Basic
+public import Mathlib.Basic.SetLike.Basic
 import Batteries.Data.BitVec.Lemmas
 
 public section
