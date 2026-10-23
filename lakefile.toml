@@ -6,7 +6,7 @@ lintDriver = "batteries/runLinter"
 
 [[require]]
 name = "Parser"
-git = "https://github.com/AmosNico/lean4-parser"
+git = "https://github.com/AmosNico/lean4-parseit"
 rev = "v4.36.0"
 
 [[require]]

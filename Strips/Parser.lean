@@ -5,7 +5,8 @@ import Mathlib.Data.String.Defs
 import Init.Data.String.Bootstrap
 import Std.Data.Iterators.Combinators.TakeWhile
 
-import Parser
+import ParseIt.Input
+import ParseIt.Char
 
 public import Strips.PlanningTask
 
@@ -16,61 +17,78 @@ This file defines a parser for STRIPS planning tasks in the format used by the c
 helve, see https://github.com/salome-eriksson/helve.
 -/
 
-abbrev Parser := SimpleParser String.Slice Char
+/-- Error that keeps the input slice, so it can show the offending line. -/
+inductive ParserError where
+  | unexpected (s : String.Slice) (pos : String.Pos.Raw) (tok : Option Char)
+  | addMessage (e : ParserError) (pos : String.Pos.Raw) (m : String)
 
-/--
-Get the line, line number and position in the line of the position `p` in `s`.
-Panicks if `p` is not a valid position in `s`.
--/
-def positionInfo (s : String) (p : String.Pos.Raw) : String × ℕ × ℕ :=
-  if h : p.IsValid s then
-    let pos : s.Pos := ⟨p, h⟩
-    let startPos := (String.Pos.revFind? pos '\n' >>= String.Pos.next?).getD s.startPos
-    let endPos := String.Pos.find pos '\n'
-    let line_nb := (s.sliceTo pos).lines.length
-    let offset := (s.extract startPos pos).positions.length
-    (s.extract startPos endPos, line_nb, offset)
-  else
-    unreachable!
+/-- The stream that was being parsed when the error happened. -/
+def ParserError.stream : ParserError → String.Slice
+  | .unexpected s _ _ => s
+  | .addMessage e _ _ => e.stream
 
-/--
-Format the given error. The second argument is the context where the error occured.
-In case of a parsing error this is the input string and for an error related to the certificate this
-is the line of the certifcate causing the error.
--/
-def formatWithContext : Parser.Error.Simple String.Slice Char → String → Std.Format
-  | .unexpected pos none, context =>
-    let ⟨line, k, offset⟩ := positionInfo context pos
+/-- The position in the stream where the error happened. -/
+def ParserError.pos : ParserError → String.Pos.Raw
+  | .unexpected _ p _ => p
+  | .addMessage e _ _ => e.pos
+
+instance : ParseIt.Error ParserError ParseIt.CharIterator Char where
+  unexpected it t := .unexpected it.internalState.slice it.internalState.pos.offset t
+  addMessage e it m := .addMessage e it.internalState.pos.offset m
+  merge e₁ e₂ := if e₁.pos.byteIdx ≤ e₂.pos.byteIdx then e₂ else e₁
+
+/-- Line number, column, and text of the line that contains position `pos`. -/
+def lineInfo (s : String.Slice) (pos : String.Pos.Raw) : Nat × Nat × String :=
+  -- lines before `pos` in reverse order
+  -- TODO : there is currently a bug in `revSplit`, check whether it has been fixed.
+  -- https://github.com/leanprover/lean4/issues/16305
+  let before := (s.take pos.byteIdx).revSplit '\n'
+  -- lines after `pos`
+  let after := (s.drop pos.byteIdx).split '\n'
+  let lineNo := before.length - 1
+  -- first part of the current line
+  let pre := before.first?.getD ""
+  let col := pre.positions.length
+  -- last part of the current line
+  let post := after.first?.getD ""
+  (lineNo, col, pre.toString ++ post.toString)
+
+/-- Format the given error. -/
+def ParserError.format : ParserError → Std.Format
+  | .unexpected s pos none =>
+    let ⟨k, offset, line⟩ := lineInfo s pos
     f!"Unexpect character on line {k}:\n{line}\n{String.replicate offset ' '}^\n"
-  | .unexpected pos (some t), context =>
-    let ⟨line, k, offset⟩ := positionInfo context pos
-    f!"Unexpect character '{t}' on line {k}:\n{line}\n{String.replicate (offset - 1) ' '}^\n"
-  | .addMessage e pos msg, context =>
-    let ⟨_, n, k⟩ := positionInfo context pos
-    f!"{msg} (line {n}, pos {k})" ++ .indentD (formatWithContext e context)
+  | .unexpected s p (some t) =>
+    let ⟨k, offset, line⟩ := lineInfo s p
+    f!"Unexpect character '{t}' on line {k}:\n{line}\n{String.replicate offset ' '}^\n"
+  | .addMessage e pos msg =>
+    let ⟨n, k, _⟩ := lineInfo e.stream pos
+    f!"{msg} (line {n}, pos {k})" ++ .indentD e.format
+
+abbrev Parser := ParseIt.Parser ParserError ParseIt.CharIterator Char
 
 def dropSpaces : Parser Unit :=
-  Parser.dropMany (Parser.Char.char ' ')
+  ParseIt.dropMany (ParseIt.Char.char ' ')
 
 def dropEol : Parser Unit :=
-  dropSpaces <* Parser.Char.eol
+  dropSpaces <* ParseIt.Char.eol
 
 def dropString (s : String) : Parser Unit :=
-  Parser.Char.chars s *> dropSpaces
+  ParseIt.Char.string s *> dropSpaces
 
 def dropLine (s : String) : Parser Unit :=
-  Parser.Char.chars s *> dropEol
+  ParseIt.Char.string s *> dropEol
 
 def readLine {α} (s : String) (p : Parser α) : Parser α :=
   dropString s *> p <* dropEol
 
 def parseLine : Parser String :=
   do
-    let ⟨⟨l⟩, _⟩ ← Parser.takeUntil Parser.Char.eol Parser.anyToken
+    let ⟨⟨l⟩, _⟩ ← ParseIt.takeUntil ParseIt.Char.eol ParseIt.anyToken
     return String.ofList l
 
 def parseNat : Parser ℕ :=
-  Parser.Char.ASCII.parseNat <* dropSpaces
+  ParseIt.Char.ASCII.parseNat <* dropSpaces
 
 abbrev push? {α} : Array α → Option α → Array α
 | xs, none => xs
@@ -81,18 +99,21 @@ For each tuple `(p, p', e)` in the given list, try the parser `p`. If it succeed
 run the parser `p'`, otherwise proceed with the next tuple in the list. The optional
 error messages `e` are combined into one error message if none of the parsers `p` succeed.
 -/
--- Based on `Parser.first`
+-- Based on `ParseIt.first`
 def parseCases' {α} (ps : List (Parser Unit × Parser α × Option String)) :
   Parser α :=
   go ps #[]
 where
   go : List (Parser Unit × Parser α × Option String) → Array String → Parser α
-    | [], ⟨e⟩, s, pos =>
-      Parser.throwUnexpectedWithMessage none s!"expected one of the following : {e}" s pos
-    | (p, p', descr) :: ps, e, s, pos =>
-      p s pos >>= fun
-      | .ok s pos () => p' s pos
-      | .error s _ _ => go ps (push? e descr) s pos
+    | [], ⟨e⟩, it =>
+      ParseIt.throwUnexpectedWithMessage none s!"expected one of the following : {e}" it
+    | (p, p', descr) :: ps, es, it => do
+      match ← p it with
+      | .ok it1 h1 () =>
+        match ← p' it1 with
+        | .ok it2 h2 x => pure (.ok it2 (.trans h2 h1) x)
+        | .error e => .error e
+      | .error _  => go ps (push? es descr) it
 
 /--
 For each of the pairs `(s, p)` in `ps1`, try to parse the string `s`. If it succeeds,
@@ -108,33 +129,33 @@ def parseCases {α} (ps1 : List (String × Parser α)) (ps2 : List (Parser Unit 
   parseCases' (ps1' ++ ps2')
 
 def parseAtoms : Parser (Array String) :=
-  Parser.withErrorMessage "error while parsing atoms"
+  ParseIt.withErrorMessage "error while parsing atoms"
   do
     let n ← readLine "begin_atoms:" parseNat
-    let atoms ← Parser.take n parseLine
+    let atoms ← ParseIt.take n parseLine
     dropLine "end_atoms"
     return atoms
 
 def parseVar {n} : Parser (Fin n) :=
-  Parser.withErrorMessage
+  ParseIt.withErrorMessage
     s!"expected a reference to an atom, this should be a natural number smaller then {n}"
   do
     let i ← parseNat
     if h : i < n
     then return Fin.mk i h
-    else Parser.throwUnexpected
+    else ParseIt.throwUnexpected
 
 def parseVarLn {n} : Parser (Fin n) := parseVar <* dropEol
 
 def parseVarSet {n} : Parser (VarSet n) :=
-  VarSet.ofList <$> Array.toList <$> Parser.takeMany parseVarLn
+  VarSet.ofList <$> Array.toList <$> ParseIt.takeMany parseVarLn
 
 def parseInit n : Parser (VarSet n) :=
-  Parser.withErrorMessage "error while parsing the inital state"
+  ParseIt.withErrorMessage "error while parsing the inital state"
     (dropLine "begin_init" *> parseVarSet <* dropLine "end_init")
 
 def parseGoal n : Parser (VarSet n) :=
-  Parser.withErrorMessage "error while parsing the goal"
+  ParseIt.withErrorMessage "error while parsing the goal"
     (dropLine "begin_goal" *> parseVarSet <* dropLine "end_goal")
 
 structure Conditions n where
@@ -159,10 +180,10 @@ def parseAction n : Parser (Action n) :=
     return Action.mk name (VarSet.ofList pre) (VarSet.ofList add) (VarSet.ofList del) cost
 
 def parseActions n : Parser (List (Action n)) :=
-  Parser.withErrorMessage "error while parsing the actions"
+  ParseIt.withErrorMessage "error while parsing the actions"
   do
     let k ← readLine "begin_actions:" parseNat
-    let as ← Parser.take k (parseAction n)
+    let as ← ParseIt.take k (parseAction n)
     dropLine "end_actions"
     return as.toList
 
@@ -174,7 +195,7 @@ def parsePlanningTask : Parser (Σ n, PlanningTask n) :=
     let init ← parseInit n
     let goal ← parseGoal n
     let actions ← parseActions n
-    Parser.endOfInput
+    ParseIt.endOfInput
     return Sigma.mk n (PlanningTask.mk atoms actions init goal)
 
 /--
@@ -212,11 +233,11 @@ format:
 public def readPlanningTask (path : System.FilePath) : IO (Σ n, PlanningTask n) :=
   do
     let content ← IO.FS.readFile path
-    let p := Parser.withErrorMessage
+    let p : Parser ((n : ℕ) × PlanningTask n) := ParseIt.withErrorMessage
       s!"An error occured when parsing the STRIPS planning problem at \"{path}\""
       parsePlanningTask
-    match p.run content with
-    | .ok _ _ res => return res
-    | .error _ _ e => throw (IO.userError (formatWithContext e content).pretty)
+    match p.parseString content with
+    | .ok res => return res
+    | .error e => throw (IO.userError e.format.pretty)
 
 end STRIPS
